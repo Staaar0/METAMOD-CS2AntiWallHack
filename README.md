@@ -84,17 +84,18 @@ The included config.jsonc contains:
 // AntiWallHack configuration.
 
 Enabled                      1       // Enable visibility filtering.
+SmokeOcclusion               1       // Enable smoke checks.
 NearestEnemies               5       // Number of enemies checked.
 VisibleGraceTicks            20      // Visibility grace period.
 BoundsPadding                48      // Extra bounds padding.
 PredictionSeconds            0.2     // Movement prediction.
 AlwaysVisibleDistance        160     // Reveal nearby enemies.
-SetDontTransmitToZero        1       // Set sv_enable_donttransmit to 0.
 ```
 
 | Setting | Value | What it does |
 | :--- | :---: | :--- |
 | `Enabled` | `1` | Turns visibility filtering on or off. |
+| `SmokeOcclusion` | 	`1` | Smoke filtering. |
 | `NearestEnemies` | `5` | Number of nearest enemies checked for each viewer. |
 | `VisibleGraceTicks` | `20` | How long an enemy stays available after a clear check. |
 | `BoundsPadding` | `48` | Helping reveal corner peeks earlier. Measured in game units. |
@@ -132,7 +133,7 @@ No. It limits transmission of selected hidden enemies and their equipment. It do
 
 ### Does smoke hide enemies from transmission?
 
-No. Smoke is not part of the plugin's visibility checks. Window collision layers are also excluded from the ray filter.
+Yes. Smoke is part of the plugin's visibility checks. Window collision layers are also excluded from the ray filter.
 
 ### Why can I still see a nearby enemy through a wall with a cheat?
 
