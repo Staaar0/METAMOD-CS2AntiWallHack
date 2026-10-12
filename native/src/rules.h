@@ -66,10 +66,9 @@ namespace awh
 
     struct Settings
     {
-        bool Enabled = true;
+        bool Enabled = true, SmokeOcclusion = true;
         int NearestEnemies = 5, VisibleGraceTicks = 20;
-        float BoundsPadding = 48, PredictionSeconds = .2f, AlwaysVisibleDistance = 160;
-        bool SetDontTransmitToZero = true;
+        float BoundsPadding = 38, PredictionSeconds = .2f, AlwaysVisibleDistance = 160;
 
         bool Valid() const
         {

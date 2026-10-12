@@ -5,31 +5,19 @@
 #include <string>
 #include <vector>
 #include <fstream>
-#ifdef _WIN32
-#include <windows.h>
-#else
 #include <link.h>
 #include <dlfcn.h>
 #include <cstring>
-#endif
 
 namespace awh
 {
     inline bool Readable( const void* pointer, size_t size )
     {
         auto address = reinterpret_cast<uintptr_t>( pointer );
-        
+
         if ( !address || size > UINTPTR_MAX - address )
             return false;
 
-    #ifdef _WIN32
-        MEMORY_BASIC_INFORMATION region{};
-        if ( !VirtualQuery( pointer, &region, sizeof( region ) ) )
-            return false;
-
-        return region.State == MEM_COMMIT && !( region.Protect & ( PAGE_NOACCESS | PAGE_GUARD ) ) &&
-            address + size <= reinterpret_cast<uintptr_t>( region.BaseAddress ) + region.RegionSize;
-    #else
         static const auto ranges = []
         {
             std::vector<std::pair<uintptr_t, uintptr_t>> result;
@@ -42,7 +30,9 @@ namespace awh
                 input >> span >> permissions;
 
                 auto dash = span.find( '-' );
-                if ( dash != std::string::npos && !permissions.empty() && permissions[0] == 'r' ) result.emplace_back( std::strtoull( span.substr( 0, dash ).c_str(), nullptr, 16 ), std::strtoull( span.substr( dash + 1 ).c_str(), nullptr, 16 ) );
+                if ( dash != std::string::npos && !permissions.empty() && permissions[0] == 'r' )
+                    result.emplace_back( std::strtoull( span.substr( 0, dash ).c_str(), nullptr, 16 ),
+                                        std::strtoull( span.substr( dash + 1 ).c_str(), nullptr, 16 ) );
             }
             return result;
         }();
@@ -52,8 +42,6 @@ namespace awh
                 return true;
 
         return false;
-
-    #endif
     }
 
     inline bool SchemaNameEquals( const char* name, const char* expected )
@@ -95,26 +83,6 @@ namespace awh
 
         std::vector<Region> regions;
 
-    #ifdef _WIN32
-        HMODULE module = nullptr;
-
-        if ( !GetModuleHandleExA( GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, reinterpret_cast<LPCSTR>( serverFunction ), &module ) )
-            return nullptr;
-
-        auto base = reinterpret_cast<const uint8_t*>( module );
-
-        if ( !base )
-            return nullptr;
-
-        auto dos = reinterpret_cast<const IMAGE_DOS_HEADER*>( base );
-        auto nt = reinterpret_cast<const IMAGE_NT_HEADERS*>( base + dos->e_lfanew );
-        auto sections = IMAGE_FIRST_SECTION( nt );
-
-        for ( unsigned i = 0; i < nt->FileHeader.NumberOfSections; ++i )
-
-            if ( sections[i].Characteristics & IMAGE_SCN_MEM_EXECUTE )
-                regions.push_back( { base + sections[i].VirtualAddress, sections[i].Misc.VirtualSize } );
-    #else
         Dl_info module{};
 
         if ( !dladdr( serverFunction, &module ) || !module.dli_fbase )
@@ -146,7 +114,6 @@ namespace awh
                 return 1;
             },
             &search );
-    #endif
         const uint8_t* match = nullptr;
 
         for ( auto region : regions )
@@ -155,12 +122,14 @@ namespace awh
             {
                 size_t j = 0;
 
-                while ( j < bytes.size() && ( bytes[j] < 0 || region.start[i + j] == bytes[j] ) ) ++j;
+                while ( j < bytes.size() && ( bytes[j] < 0 || region.start[i + j] == bytes[j] ) )
+                    ++j;
+
                 if ( j == bytes.size() )
                 {
                     if ( match )
-                        return nullptr; 
-                        
+                        return nullptr;
+
                     match = region.start + i;
                 }
             }

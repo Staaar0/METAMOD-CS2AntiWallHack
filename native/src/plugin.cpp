@@ -16,6 +16,8 @@
 #include "memory.h"
 #include "jsonc.h"
 #include "config.h"
+#include "smoke_memory.h"
+#include <igameevents.h>
 
 PLUGIN_GLOBALVARS();
 namespace fs = std::filesystem;
@@ -89,7 +91,8 @@ namespace
 
             for ( int depth = 0; info && depth < 32; ++depth )
             {
-                if ( !Readable( info, sizeof( *info ) ) || info->m_nFieldCount > 4096 || info->m_nBaseClassCount > 32 || ( info->m_nFieldCount && !Readable( info->m_pFields, size_t( info->m_nFieldCount ) * sizeof( SchemaClassFieldData_t ) ) ) )
+                if ( !Readable( info, sizeof( *info ) ) || info->m_nFieldCount > 4096 || info->m_nBaseClassCount > 32 ||
+                    ( info->m_nFieldCount && !Readable( info->m_pFields, size_t( info->m_nFieldCount ) * sizeof( SchemaClassFieldData_t ) ) ) )
                 {
                     META_CONPRINTF( "[AntiWallHack] Invalid schema metadata: %s\n", cls );
                     return -1;
@@ -152,9 +155,10 @@ namespace
             freeze = Find( s, "CCSGameRules", "m_bFreezePeriod" );
             winner = Find( s, "CCSGameRules", "m_iRoundWinStatus" );
 
-            for ( int value : { pawn, currentPawn, alive, connected, flags, hltv, team, health, life, body, scene, collision, velocity, view, angles, origin, child, sibling, nodeOwner, mins, maxs, owner, weapons, weaponHandles, rules, warmup, freeze, winner } )
-            if ( value < 0 )
-                return false;
+            for ( int value : { pawn,   currentPawn, alive, connected, flags,     hltv, team, health, life,    body,          scene, collision, velocity, view,
+                                angles, origin,      child, sibling,   nodeOwner, mins, maxs, owner,  weapons, weaponHandles, rules, warmup,    freeze,   winner } )
+                if ( value < 0 )
+                    return false;
 
             return true;
         }
@@ -169,7 +173,7 @@ namespace
         Vector origin, eye, mins, maxs, velocity;
         QAngle angles;
         std::vector<CEntityHandle> entities;
-        std::array<Vector, 12> samples;
+        std::array<Vector, 12> samples, smokeSamples;
         bool samplesReady = false;
     };
 
@@ -189,9 +193,13 @@ namespace
         const Snapshot& viewer;
         const Snapshot& target;
 
-    public: SightFilter( const Snapshot& a, const Snapshot& b ) : CTraceFilter( uint64( 1 ) << LAYER_INDEX_CONTENTS_SOLID ), viewer( a ), target( b )
+    public:
+        SightFilter( const Snapshot& a, const Snapshot& b ) : CTraceFilter( uint64( 1 ) << LAYER_INDEX_CONTENTS_SOLID ), viewer( a ), target( b )
         {
-            m_nInteractsExclude = ( uint64( 1 ) << LAYER_INDEX_CONTENTS_PLAYER ) | ( uint64( 1 ) << LAYER_INDEX_CONTENTS_HITBOX ) | ( uint64( 1 ) << LAYER_INDEX_CONTENTS_TRIGGER ) | ( uint64( 1 ) << LAYER_INDEX_CONTENTS_PLAYER_CLIP ) | ( uint64( 1 ) << LAYER_INDEX_CONTENTS_NPC_CLIP ) | ( uint64( 1 ) << LAYER_INDEX_CONTENTS_WINDOW ) | ( uint64( 1 ) << LAYER_INDEX_CONTENTS_CARRIED_OBJECT ) | ( uint64( 1 ) << LAYER_INDEX_CONTENTS_CARRIED_WEAPON );
+            m_nInteractsExclude = ( uint64( 1 ) << LAYER_INDEX_CONTENTS_PLAYER ) | ( uint64( 1 ) << LAYER_INDEX_CONTENTS_HITBOX ) |
+                                ( uint64( 1 ) << LAYER_INDEX_CONTENTS_TRIGGER ) | ( uint64( 1 ) << LAYER_INDEX_CONTENTS_PLAYER_CLIP ) |
+                                ( uint64( 1 ) << LAYER_INDEX_CONTENTS_NPC_CLIP ) | ( uint64( 1 ) << LAYER_INDEX_CONTENTS_WINDOW ) |
+                                ( uint64( 1 ) << LAYER_INDEX_CONTENTS_CARRIED_OBJECT ) | ( uint64( 1 ) << LAYER_INDEX_CONTENTS_CARRIED_WEAPON );
             SetPassEntity1( a.pawn );
             SetPassEntity2( b.pawn );
             SetPassEntityOwner1( a.pawn );
@@ -208,7 +216,8 @@ namespace
 
             auto handle = e->GetRefEHandle();
 
-            return std::find( viewer.entities.begin(), viewer.entities.end(), handle ) == viewer.entities.end() && std::find( target.entities.begin(), target.entities.end(), handle ) == target.entities.end();
+            return std::find( viewer.entities.begin(), viewer.entities.end(), handle ) == viewer.entities.end() &&
+                std::find( target.entities.begin(), target.entities.end(), handle ) == target.entities.end();
         }
     };
 }
@@ -224,11 +233,37 @@ class AntiWallHack final : public ISmmPlugin, public IMetamodListener
     Offsets offsets;
     Settings settings;
     fs::path configPath;
+
+    class EventHook final : public KHook::Virtual<IGameEventManager2, bool, IGameEvent*, bool>
+    {
+        using Base = KHook::Virtual<IGameEventManager2, bool, IGameEvent*, bool>;
+
+      public:
+        using Base::Base;
+
+        bool Installed( void** vtable, int index )
+        {
+            std::lock_guard guard( this->_hooks_stored );
+            return this->_addr_hook_ids.count( vtable + index ) != 0;
+        }
+    };
+
+    std::unique_ptr<EventHook> eventHook;
+    IGameEventManager2* eventManager = nullptr;
+    uintptr_t eventManagerAddress = 0;
+    bool eventHooked = false, smokeAvailable = false, smokeCaptured = false;
+    int smokeEffectOffset = -1, smokeCellBudget = 262144;
+    float frameTime = 0;
+    std::array<std::unique_ptr<smoke::Volume>, 32> smokeStorage;
+    std::vector<const smoke::Volume*> smokeVolumes;
+    std::vector<uint8_t> smokeFrame = std::vector<uint8_t>( smoke::FrameBytes );
+    smoke::Explosions smokeExplosions;
     int entitySystemOffset = 0;
     std::unique_ptr<TraceHook> traceHook;
     TraceFunction traceFunction = nullptr;
     void* traceManager = nullptr;
-    using TransmitHook = KHook::Virtual<ISource2GameEntities, void, CCheckTransmitInfo**, int, CBitVec<16384>&, CBitVec<16384>&, const Entity2Networkable_t**, const uint16*, int>;
+    using TransmitHook = KHook::Virtual<ISource2GameEntities, void, CCheckTransmitInfo**, int, CBitVec<16384>&, CBitVec<16384>&, const Entity2Networkable_t**,
+                                        const uint16*, int>;
     std::unique_ptr<TransmitHook> transmitHook;
     std::array<Snapshot, 64> players;
     std::array<Identity, 64> identities{};
@@ -290,7 +325,7 @@ class AntiWallHack final : public ISmmPlugin, public IMetamodListener
     {
         ConVarRefAbstract cvar( "sv_enable_donttransmit" );
 
-        if ( !settings.SetDontTransmitToZero || !cvar.IsValidRef() )
+        if ( !cvar.IsValidRef() )
             return;
 
         if ( !convarChanged )
@@ -300,6 +335,180 @@ class AntiWallHack final : public ISmmPlugin, public IMetamodListener
         }
 
         cvar.SetBool( false );
+    }
+
+    void DisableSmoke( const std::string& reason )
+    {
+        smokeAvailable = false;
+        smokeVolumes.clear();
+        evaluated.fill( false );
+        for ( auto& row : hidden )
+            row.clear();
+        META_CONPRINTF( "[AntiWallHack] Smoke filtering disabled until plugin reload: %s. Wall filtering continues.\n", reason.c_str() );
+    }
+
+    void RemoveEventHook()
+    {
+        if ( eventHooked && eventHook && eventManager )
+            eventHook->Remove( eventManager );
+
+        eventHooked = false;
+        eventHook.reset();
+        eventManager = nullptr;
+    }
+
+    void SetupSmoke( void* serverFunction, CSchemaSystemTypeScope* scope, const Json& platform )
+    {
+        if ( !settings.SmokeOcclusion )
+            return;
+
+        std::string reason;
+
+        if ( !smoke::VerifyModule( serverFunction, reason ) )
+        {
+            DisableSmoke( reason );
+            return;
+        }
+        try
+        {
+            smokeEffectOffset = Offsets::Find( scope, "CSmokeGrenadeProjectile", "m_bDidSmokeEffect" );
+
+            if ( smokeEffectOffset < 0 )
+                throw std::runtime_error( "smoke schema field unavailable" );
+
+            auto* signature = static_cast<uint8_t*>( FindServerFunction( platform.at( "GameEventManager" ).get<std::string>(), serverFunction ) );
+            int32_t displacement = 0;
+
+            if ( !signature || !smoke::ReadValue( reinterpret_cast<uintptr_t>( signature ) + 3, displacement ) )
+                throw std::runtime_error( "HE event manager signature unavailable" );
+
+            auto address = reinterpret_cast<uintptr_t>( signature ) + 7 + displacement;
+            eventManagerAddress = address;
+
+            if ( !smoke::ReadValue( address, eventManager ) || !eventManager )
+                throw std::runtime_error( "HE event manager unavailable" );
+
+            void** vtable = nullptr;
+            int index = platform.at( "FireEvent" ).get<int>();
+            void* function = nullptr;
+
+            if ( index != KHook::GetVtableIndex( &IGameEventManager2::FireEvent ) || !smoke::ReadValue( reinterpret_cast<uintptr_t>( eventManager ), vtable ) ||
+                 !vtable || !smoke::ReadValue( reinterpret_cast<uintptr_t>( vtable + index ), function ) || !function )
+                throw std::runtime_error( "HE event dispatch layout mismatch" );
+
+            eventHook = std::make_unique<EventHook>( &IGameEventManager2::FireEvent, this, &AntiWallHack::OnGameEvent, nullptr );
+            eventHook->Add( eventManager );
+            eventHooked = true;
+
+            if ( !eventHook->Installed( vtable, index ) )
+                throw std::runtime_error( "HE event hook installation failed" );
+
+            smokeAvailable = true;
+        }
+        catch ( const std::exception& ex )
+        {
+            RemoveEventHook();
+            DisableSmoke( ex.what() );
+        }
+    }
+
+    void CaptureSmoke()
+    {
+        smokeCaptured = true;
+        smokeVolumes.clear();
+
+        if ( !smokeAvailable || !smokeExplosions.Begin( frameTime ) )
+            return;
+
+        IGameEventManager2* currentManager = nullptr;
+
+        if ( !smoke::ReadValue( eventManagerAddress, currentManager ) || currentManager != eventManager )
+        {
+            DisableSmoke( "HE event manager changed or became unreadable" );
+            return;
+        }
+        try
+        {
+            size_t count = 0;
+
+            for ( auto* identity = entitySystem->m_EntityList.m_pFirstActiveEntity; identity; identity = identity->m_pNext )
+            {
+                auto* entity = identity->m_pInstance;
+
+                if ( !entity || !IsClass( entity, "CSmokeGrenadeProjectile" ) )
+                    continue;
+
+                uint8_t active = 0;
+
+                if ( !smoke::ReadValue( reinterpret_cast<uintptr_t>( entity ) + smokeEffectOffset, active ) )
+                {
+                    DisableSmoke( "unreadable smoke effect state" );
+                    return;
+                }
+
+                if ( active > 1 )
+                {
+                    DisableSmoke( "invalid smoke effect state" );
+                    return;
+                }
+
+                if ( !active )
+                    continue;
+
+                if ( count == smokeStorage.size() )
+                {
+                    smokeVolumes.clear();
+                    return;
+                }
+
+                auto& volume = smokeStorage[count];
+
+                if ( !volume )
+                    volume = std::make_unique<smoke::Volume>();
+                constexpr size_t volumeOffset = 3736;
+                if ( !smoke::ReadSnapshot( reinterpret_cast<uintptr_t>( entity ), volumeOffset, frameTime, *volume, smokeFrame, smoke::ReadMemory ) )
+                {
+                    DisableSmoke( "invalid or unreadable smoke snapshot" );
+                    return;
+                }
+
+                ++count;
+
+                if ( !smokeExplosions.Clears( *volume, frameTime ) )
+                    smokeVolumes.push_back( volume.get() );
+            }
+        }
+        catch ( const std::exception& ex )
+        {
+            DisableSmoke( ex.what() );
+        }
+    }
+
+    bool IsSmokeHidden( const Snapshot& viewer, const Snapshot& target, Vector lead, Vector eyeLead, int count, int first )
+    {
+        if ( !smokeAvailable || !settings.SmokeOcclusion )
+            return false;
+
+        if ( !smokeCaptured )
+            CaptureSmoke();
+
+        if ( !smokeAvailable || smokeVolumes.empty() )
+            return false;
+
+        for ( int order = 0; order < count; ++order )
+        {
+            int index = OrderedSample( order, first );
+            bool predicted = index >= 12;
+
+            Vector start = viewer.eye + ( predicted ? eyeLead : Vector( 0, 0, 0 ) );
+            Vector end = target.smokeSamples[index % 12] + ( predicted ? lead : Vector( 0, 0, 0 ) );
+
+            if ( !smoke::Blocked( smokeVolumes, { start.x, start.y, start.z }, { end.x, end.y, end.z }, predicted ? settings.PredictionSeconds : 0,
+                                  smokeCellBudget ) )
+                return false;
+        }
+
+        return true;
     }
 
     bool CollectChildren( void* node, Snapshot& snapshot, std::unordered_set<void*>& seen, int depth )
@@ -342,16 +551,23 @@ class AntiWallHack final : public ISmmPlugin, public IMetamodListener
         return false;
     }
 
-    void BeginFrame( int tick )
+    void BeginFrame( int tick, float now )
     {
         if ( frameTick == tick )
             return;
 
         if ( tick < frameTick )
+        {
             Reset();
+            smokeExplosions.Reset();
+        }
 
         frameTick = tick;
+        frameTime = now;
         traces = 0;
+        smokeCaptured = false;
+        smokeVolumes.clear();
+        smokeCellBudget = 262144;
 
         evaluated.fill( false );
 
@@ -364,7 +580,8 @@ class AntiWallHack final : public ISmmPlugin, public IMetamodListener
             p = Snapshot{};
             auto* controller = EntityAt( entitySystem, CEntityIndex( slot + 1 ) );
 
-            if ( !controller || !IsClass( controller, "CCSPlayerController" ) || Field<int>( controller, offsets.connected ) != 0 || !Field<bool>( controller, offsets.alive ) )
+            if ( !controller || !IsClass( controller, "CCSPlayerController" ) || Field<int>( controller, offsets.connected ) != 0 ||
+                 !Field<bool>( controller, offsets.alive ) )
             {
                 identities[slot] = {};
                 continue;
@@ -397,7 +614,8 @@ class AntiWallHack final : public ISmmPlugin, public IMetamodListener
             p.maxs = Field<Vector>( collision, offsets.maxs );
             p.angles = Field<QAngle>( pawn, offsets.angles );
 
-            if ( !Finite( p.origin ) || !Finite( p.eye ) || !Finite( p.velocity ) || !Finite( p.mins ) || !Finite( p.maxs ) || !std::isfinite( p.angles.x ) || !std::isfinite( p.angles.y ) || !std::isfinite( p.angles.z ) || p.mins.x >= p.maxs.x || p.mins.y >= p.maxs.y || p.mins.z >= p.maxs.z )
+            if ( !Finite( p.origin ) || !Finite( p.eye ) || !Finite( p.velocity ) || !Finite( p.mins ) || !Finite( p.maxs ) || !std::isfinite( p.angles.x ) ||
+                 !std::isfinite( p.angles.y ) || !std::isfinite( p.angles.z ) || p.mins.x >= p.maxs.x || p.mins.y >= p.maxs.y || p.mins.z >= p.maxs.z )
             {
                 identities[slot] = {};
                 continue;
@@ -409,7 +627,8 @@ class AntiWallHack final : public ISmmPlugin, public IMetamodListener
             p.controllerHandle = controller->GetRefEHandle().ToInt();
 
             // FL_FAKECLIENT and HLTV bypass, only filter the actual living pawn, not a possessed bot.
-            p.human = !( Field<uint32>( controller, offsets.flags ) & FL_FAKECLIENT ) && !Field<bool>( controller, offsets.hltv ) && Field<CEntityHandle>( controller, offsets.currentPawn ) == handle;
+            p.human = !( Field<uint32>( controller, offsets.flags ) & FL_FAKECLIENT ) && !Field<bool>( controller, offsets.hltv ) &&
+                      Field<CEntityHandle>( controller, offsets.currentPawn ) == handle;
             Identity identity{ p.controllerHandle, p.pawnHandle, team };
 
             if ( !( identities[slot] == identity ) )
@@ -460,28 +679,33 @@ class AntiWallHack final : public ISmmPlugin, public IMetamodListener
                 continue;
 
             for ( auto& p : players )
-            if ( p.pawn && owner.ToInt() == p.pawnHandle )
-            {
-                p.entities.push_back( e->GetRefEHandle() );
-                break;
-            }
+                if ( p.pawn && owner.ToInt() == p.pawnHandle )
+                {
+                    p.entities.push_back( e->GetRefEHandle() );
+                    break;
+                }
         }
+    }
+
+    void FillSamples( const Snapshot& target, float padding, std::array<Vector, 12>& points )
+    {
+        auto lo = target.mins - Vector( padding, padding, 0 );
+        auto hi = target.maxs + Vector( padding, padding, padding );
+        points[0] = target.eye;
+        points[1] = target.origin + ( lo + hi ) * .5f;
+        for ( int i = 0; i < 8; ++i )
+            points[i + 2] = target.origin + Vector( ( i & 1 ) ? hi.x : lo.x, ( i & 2 ) ? hi.y : lo.y, ( i & 4 ) ? hi.z : lo.z + 4 );
+        constexpr float radians = 3.14159265358979323846f / 180;
+        float pitch = target.angles.x * radians, yaw = target.angles.y * radians;
+        Vector forward( std::cos( pitch ) * std::cos( yaw ), std::cos( pitch ) * std::sin( yaw ), -std::sin( pitch ) );
+        points[10] = target.eye + forward * 64;
+        points[11] = target.origin + Vector( 0, 0, 32 ) + forward * 40;
     }
 
     void BuildSamples( Snapshot& target )
     {
-        auto lo = target.mins - Vector( settings.BoundsPadding, settings.BoundsPadding, 0 );
-        auto hi = target.maxs + Vector( settings.BoundsPadding, settings.BoundsPadding, settings.BoundsPadding );
-
-        target.samples[0] = target.eye;
-        target.samples[1] = target.origin + ( lo + hi ) * .5f;
-
-        for ( int i = 0; i < 8; ++i ) target.samples[i + 2] = target.origin + Vector( ( i & 1 ) ? hi.x : lo.x, ( i & 2 ) ? hi.y : lo.y, ( i & 4 ) ? hi.z : lo.z + 4 );
-        constexpr float radians = 3.14159265358979323846f / 180;
-        float pitch = target.angles.x * radians, yaw = target.angles.y * radians;
-        Vector forward( std::cos( pitch ) * std::cos( yaw ), std::cos( pitch ) * std::sin( yaw ), -std::sin( pitch ) );
-        target.samples[10] = target.eye + forward * 64;
-        target.samples[11] = target.origin + Vector( 0, 0, 32 ) + forward * 40;
+        FillSamples( target, settings.BoundsPadding, target.samples );
+        FillSamples( target, 28, target.smokeSamples );
         target.samplesReady = true;
     }
 
@@ -527,9 +751,19 @@ class AntiWallHack final : public ISmmPlugin, public IMetamodListener
 
             if ( !Occluded( result.m_flFraction, result.m_bStartInSolid ) )
             {
-                if ( !result.m_bStartInSolid && std::isfinite( result.m_flFraction ) && result.m_flFraction >= .99f && result.m_flFraction <= 1 ) preferred[viewerSlot][targetSlot] = index;
-                return false;
+                bool clear = !result.m_bStartInSolid && std::isfinite( result.m_flFraction ) && result.m_flFraction >= .99f && result.m_flFraction <= 1;
+
+                if ( !clear )
+                    return false;
+                // All smaller smoke endpoints must be obscured independently of wall endpoints.
+                bool smokeHidden = IsSmokeHidden( viewer, target, lead, eyeLead, count, first );
+
+                if ( !smokeHidden )
+                    preferred[viewerSlot][targetSlot] = index;
+
+                return smokeHidden;
             }
+
             if ( result.m_pEnt && !filter.ShouldHitEntity( result.m_pEnt ) )
                 return false;
         }
@@ -615,13 +849,8 @@ class AntiWallHack final : public ISmmPlugin, public IMetamodListener
             configPath = baseDir / "cfg/AntiWallHack.cfg";
             LoadSettings();
             auto data = ReadGamedata( baseDir / "addons/antiwallhack/gamedata.jsonc" );
-#ifdef _WIN32
-            auto platform = data.at( "windows" );
-            const char* module = "server.dll";
-#else
             auto platform = data.at( "linux" );
             const char* module = "libserver.so";
-#endif
             entitySystemOffset = platform.at( "GameEntitySystem" ).get<int>();
 
             if ( entitySystemOffset < 0 || entitySystemOffset > 1024 || entitySystemOffset % 8 )
@@ -657,6 +886,7 @@ class AntiWallHack final : public ISmmPlugin, public IMetamodListener
             hooked = true;
             ismm->AddListener( this, this );
             ConfigureConvar();
+            SetupSmoke( serverFunction, scope, platform );
             return true;
         }
         catch ( const std::exception& ex )
@@ -667,6 +897,7 @@ class AntiWallHack final : public ISmmPlugin, public IMetamodListener
                 hooked = false;
             }
 
+            RemoveEventHook();
             transmitHook.reset();
             traceHook.reset();
 
@@ -685,6 +916,10 @@ class AntiWallHack final : public ISmmPlugin, public IMetamodListener
             hooked = false;
         }
 
+        RemoveEventHook();
+        smokeAvailable = false;
+        smokeVolumes.clear();
+        smokeExplosions.Reset();
         transmitHook.reset();
         traceHook.reset();
         ConVarRefAbstract cvar( "sv_enable_donttransmit" );
@@ -704,6 +939,9 @@ class AntiWallHack final : public ISmmPlugin, public IMetamodListener
     void OnLevelInit( const char*, const char*, const char*, const char*, bool, bool ) override
     {
         Reset();
+        smokeExplosions.Reset();
+        smokeCaptured = false;
+        smokeVolumes.clear();
         traceManager = nullptr;
         entitySystem = nullptr;
         ConfigureConvar();
@@ -712,8 +950,53 @@ class AntiWallHack final : public ISmmPlugin, public IMetamodListener
     void OnLevelShutdown() override
     {
         Reset();
+        smokeExplosions.Reset();
+        smokeCaptured = false;
+        smokeVolumes.clear();
         traceManager = nullptr;
         entitySystem = nullptr;
+    }
+
+    KHook::Return<bool> OnGameEvent( IGameEventManager2*, IGameEvent* event, bool )
+    {
+        if ( !smokeAvailable || !event )
+            return { KHook::Action::Ignore };
+        try
+        {
+            if ( std::strcmp( event->GetName(), "hegrenade_detonate" ) == 0 )
+            {
+                auto* server = network->GetIGameServer();
+                auto* globals = server ? server->GetGlobals() : nullptr;
+                if ( !globals )
+                {
+                    DisableSmoke( "HE event time unavailable" );
+                    return { KHook::Action::Ignore };
+                }
+                if ( !event->HasKey( "x" ) || !event->HasKey( "y" ) || !event->HasKey( "z" ) )
+                {
+                    DisableSmoke( "HE event coordinates unavailable" );
+                    return { KHook::Action::Ignore };
+                }
+                smoke::Point center{ event->GetFloat( "x" ), event->GetFloat( "y" ), event->GetFloat( "z" ) };
+                if ( !smoke::Finite( center ) || !std::isfinite( globals->curtime ) )
+                {
+                    DisableSmoke( "invalid HE event position or time" );
+                    return { KHook::Action::Ignore };
+                }
+                smokeExplosions.Add( center, globals->curtime );
+                smokeCaptured = false;
+                smokeVolumes.clear();
+                // Never reuse a smoke decision after a new opening in the same tick.
+                evaluated.fill( false );
+                for ( auto& row : hidden )
+                    row.clear();
+            }
+        }
+        catch ( const std::exception& ex )
+        {
+            DisableSmoke( ex.what() );
+        }
+        return { KHook::Action::Ignore };
     }
 
     KHook::Return<void> OnTrace( void* manager, Ray_t&, Vector&, Vector&, CTraceFilter*, CGameTrace* )
@@ -722,7 +1005,8 @@ class AntiWallHack final : public ISmmPlugin, public IMetamodListener
         return { KHook::Action::Ignore };
     }
 
-    KHook::Return<void> OnTransmit( ISource2GameEntities*, CCheckTransmitInfo** infos, int count, CBitVec<16384>&, CBitVec<16384>&, const Entity2Networkable_t**, const uint16*, int )
+    KHook::Return<void> OnTransmit( ISource2GameEntities*, CCheckTransmitInfo** infos, int count, CBitVec<16384>&, CBitVec<16384>&,
+                                    const Entity2Networkable_t**, const uint16*, int )
     {
         if ( faulted || !settings.Enabled || !infos || count < 1 || count > 64 )
             return { KHook::Action::Ignore };
@@ -731,13 +1015,14 @@ class AntiWallHack final : public ISmmPlugin, public IMetamodListener
             auto* server = network->GetIGameServer();
             auto* globals = server ? server->GetGlobals() : nullptr;
             entitySystem = Field<CGameEntitySystem*>( resources, entitySystemOffset );
+            ConfigureConvar();
             ConVarRefAbstract cvar( "sv_enable_donttransmit" );
             if ( !globals || !entitySystem || !traceManager || ( cvar.IsValidRef() && cvar.GetBool() ) || !RoundActive() )
             {
                 Reset();
                 return { KHook::Action::Ignore };
             }
-            BeginFrame( globals->tickcount );
+            BeginFrame( globals->tickcount, globals->curtime );
             for ( int i = 0; i < count; ++i )
             {
                 auto* info = reinterpret_cast<TransmitInfo*>( infos[i] );
@@ -781,7 +1066,7 @@ class AntiWallHack final : public ISmmPlugin, public IMetamodListener
 
     const char* GetURL() override
     {
-        return "";
+        return "https://discord.gg/d5uvMmUpuE";
     }
 
     const char* GetLicense() override
@@ -791,7 +1076,7 @@ class AntiWallHack final : public ISmmPlugin, public IMetamodListener
 
     const char* GetVersion() override
     {
-        return "1.0.0";
+        return "1.0.1";
     }
 
     const char* GetDate() override
