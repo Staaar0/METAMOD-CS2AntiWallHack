@@ -87,9 +87,8 @@ Enabled                      1       // Enable visibility filtering.
 SmokeOcclusion               1       // Enable smoke checks.
 NearestEnemies               5       // Number of enemies checked.
 VisibleGraceTicks            20      // Visibility grace period.
-BoundsPadding                48      // Extra bounds padding.
+BoundsPadding                38      // Extra bounds padding.
 PredictionSeconds            0.2     // Movement prediction.
-AlwaysVisibleDistance        160     // Reveal nearby enemies.
 ```
 
 | Setting | Value | What it does |
@@ -98,10 +97,8 @@ AlwaysVisibleDistance        160     // Reveal nearby enemies.
 | `SmokeOcclusion` | 	`1` | Smoke filtering. |
 | `NearestEnemies` | `5` | Number of nearest enemies checked for each viewer. |
 | `VisibleGraceTicks` | `20` | How long an enemy stays available after a clear check. |
-| `BoundsPadding` | `48` | Helping reveal corner peeks earlier. Measured in game units. |
+| `BoundsPadding` | `38` | Helping reveal corner peeks earlier. Measured in game units. |
 | `PredictionSeconds` | `0.2` | How far ahead to estimate moving players' positions. `0.2` means 200 ms. |
-| `AlwaysVisibleDistance` | `120` | Nearby enemies within this radius bypass wall checks, including through walls. Measured in game units. |
-| `SetDontTransmitToZero` | `1` | Automatically requests the optional transmission compatibility setting when the server exposes it. |
 
 ## Build
 ```
