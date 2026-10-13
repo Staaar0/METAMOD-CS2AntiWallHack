@@ -24,6 +24,18 @@ namespace awh
         return tick > deadline;
     }
 
+    template <class CheckHidden> bool EvaluateHidden( int tick, int grace, int& deadline, CheckHidden check )
+    {
+        if ( !CanHide( tick, deadline ) )
+            return false;
+
+        if ( check() )
+            return true;
+
+        deadline = tick + grace;
+        return false;
+    }
+
     inline void InsertNearest( int* slots, float* distances, int& count, int capacity, int slot, float distance )
     {
         if ( !std::isfinite( distance ) || distance < 0 )
@@ -68,11 +80,11 @@ namespace awh
     {
         bool Enabled = true, SmokeOcclusion = true;
         int NearestEnemies = 5, VisibleGraceTicks = 20;
-        float BoundsPadding = 38, PredictionSeconds = .2f, AlwaysVisibleDistance = 160;
+        float BoundsPadding = 38, PredictionSeconds = .2f;
 
         bool Valid() const
         {
-            return NearestEnemies >= 1 && NearestEnemies <= 63 && VisibleGraceTicks >= 0 && VisibleGraceTicks <= 640 && std::isfinite( BoundsPadding ) && BoundsPadding >= 0 && BoundsPadding <= 256 && std::isfinite( PredictionSeconds ) && PredictionSeconds >= 0 && PredictionSeconds <= 1 && std::isfinite( AlwaysVisibleDistance ) && AlwaysVisibleDistance >= 0 && AlwaysVisibleDistance <= 16384;
+            return NearestEnemies >= 1 && NearestEnemies <= 63 && VisibleGraceTicks >= 0 && VisibleGraceTicks <= 640 && std::isfinite( BoundsPadding ) && BoundsPadding >= 0 && BoundsPadding <= 256 && std::isfinite( PredictionSeconds ) && PredictionSeconds >= 0 && PredictionSeconds <= 1;
         }
     };
-}
+} 

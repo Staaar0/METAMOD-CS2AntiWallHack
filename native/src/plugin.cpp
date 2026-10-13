@@ -12,6 +12,7 @@
 #include <unordered_set>
 #include <vector>
 #include "rules.h"
+#include "targeting.h"
 #include "transmit.h"
 #include "memory.h"
 #include "jsonc.h"
@@ -267,6 +268,8 @@ class AntiWallHack final : public ISmmPlugin, public IMetamodListener
     std::unique_ptr<TransmitHook> transmitHook;
     std::array<Snapshot, 64> players;
     std::array<Identity, 64> identities{};
+    std::array<NearestTargets, 64> targetSelection{};
+    uint64_t rosterRevision = 0;
     int deadlines[64][64]{};
     int preferred[64][64]{};
     std::array<std::vector<CEntityHandle>, 64> hidden;
@@ -312,6 +315,8 @@ class AntiWallHack final : public ISmmPlugin, public IMetamodListener
         std::memset( deadlines, 0, sizeof( deadlines ) );
         std::memset( preferred, 0, sizeof( preferred ) );
         identities.fill( {} );
+        targetSelection.fill( {} );
+        rosterRevision = 0;
         evaluated.fill( false );
 
         for ( auto& p : players )
@@ -574,6 +579,7 @@ class AntiWallHack final : public ISmmPlugin, public IMetamodListener
         for ( auto& row : hidden )
             row.clear();
 
+        const auto previousIdentities = identities;
         for ( int slot = 0; slot < 64; ++slot )
         {
             auto& p = players[slot];
@@ -665,6 +671,8 @@ class AntiWallHack final : public ISmmPlugin, public IMetamodListener
                     }
             }
         }
+        if ( identities != previousIdentities )
+            ++rosterRevision;
         // Ownership does not imply equipment: never include thrown grenades/projectiles.
         for ( auto* id = entitySystem->m_EntityList.m_pFirstActiveEntity; id; id = id->m_pNext )
         {
@@ -782,27 +790,19 @@ class AntiWallHack final : public ISmmPlugin, public IMetamodListener
         if ( !viewer.pawn || !viewer.human )
             return hidden[slot];
 
-        int nearest[64];
-        float distances[64];
-        int count = 0;
+        auto& selection = targetSelection[slot];
+        selection.Update( frameTime, rosterRevision, settings.NearestEnemies, slot, identities,
+                          [&]( int target ) { return ( players[target].origin - viewer.origin ).LengthSqr(); } );
 
-        for ( int i = 0; i < 64; ++i )
-            if ( players[i].pawn && i != slot && players[i].team != viewer.team )
-                InsertNearest( nearest, distances, count, settings.NearestEnemies, i, ( players[i].origin - viewer.origin ).LengthSqr() );
-
-        for ( int i = 0; i < count; ++i )
+        for ( int order = 0; order < selection.count; ++order )
         {
-            int targetSlot = nearest[i];
+            int index = RotatedIndex( order, uint64_t( uint32_t( tick ) ) + slot, selection.count );
+            int targetSlot = selection.slots[index];
             auto& target = players[targetSlot];
 
-            if ( !CanHide( tick, deadlines[slot][targetSlot] ) )
+            if ( !EvaluateHidden( tick, settings.VisibleGraceTicks, deadlines[slot][targetSlot],
+                                  [&] { return target.complete && IsHidden( slot, targetSlot ); } ) )
                 continue;
-
-            if ( !target.complete || distances[i] <= settings.AlwaysVisibleDistance * settings.AlwaysVisibleDistance || !IsHidden( slot, targetSlot ) )
-            {
-                deadlines[slot][targetSlot] = tick + settings.VisibleGraceTicks;
-                continue;
-            }
 
             bool valid = true;
 
@@ -1025,7 +1025,8 @@ class AntiWallHack final : public ISmmPlugin, public IMetamodListener
             BeginFrame( globals->tickcount, globals->curtime );
             for ( int i = 0; i < count; ++i )
             {
-                auto* info = reinterpret_cast<TransmitInfo*>( infos[i] );
+                int index = RotatedIndex( i, uint32_t( globals->tickcount ), count );
+                auto* info = reinterpret_cast<TransmitInfo*>( infos[index] );
 
                 if ( !info || info->fullUpdate || !info->entities || !info->deletion || info->entities == info->deletion )
                     continue;
@@ -1076,7 +1077,7 @@ class AntiWallHack final : public ISmmPlugin, public IMetamodListener
 
     const char* GetVersion() override
     {
-        return "1.0.1";
+        return "1.0.2";
     }
 
     const char* GetDate() override
