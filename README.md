@@ -68,6 +68,7 @@ For each player, the plugin selects the nearest enemies, up to the configured co
 
 1. Get the packaged .
 2. Extract to your server's `game/csgo/addons` directory.
+3. Extract VIS maps to your server's `game/csgo/addons/antiwallhack` directory.
 3. Restart the server.
 
 
@@ -108,6 +109,11 @@ cd native\obj
 python ../configure.py --sdks=cs2 --targets=x86_64 --enable-optimize --mms_path=../deps/metamod-source --hl2sdk-root=../deps --hl2sdk-manifests=../deps/metamod-source/hl2sdk-manifests
 ambuild
 ```
+
+## 1. How to bake map visibility
+
+VisBaker is published separately at [ZusDev/VisBaker](https://github.com/ZusDev/VisBaker).
+You do not need to download the AntiWallHack source project to build this tool.
 
 ### Adjusting corner pop-in
 
