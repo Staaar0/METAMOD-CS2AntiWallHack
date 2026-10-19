@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 #include <sstream>
+#include "rules.h"
 
 namespace awh::smoke
 {
@@ -301,9 +302,15 @@ namespace awh::smoke
         return false;
     }
 
+    inline bool SupportedSize( uint64_t size )
+    {
+        return size == 41724600 || size == 41726328;
+    }
+
     inline bool Matches( uint64_t size, uint32_t crc )
     {
-        return size == 41724600 && crc == 775764504u;
+        return ( size == 41724600 && crc == 775764504u ) ||
+               ( size == 41726328 && crc == 131044578u );
     }
 
     inline uint32_t Crc32( std::istream& input )
@@ -405,5 +412,19 @@ namespace awh::smoke
         }
 
         return false;
+    }
+
+    template<class Endpoints> bool SamplesBlocked( const std::vector<const Volume*>& volumes, int count, int first,
+                                                  float prediction, int& cellBudget, Endpoints endpoints )
+    {
+        if ( volumes.empty() || ( count != 12 && count != 24 ) || first < 0 || first >= count ||
+             !std::isfinite( prediction ) || prediction < 0 ) return false;
+        for ( int order = 0; order < count; ++order )
+        {
+            int index = awh::OrderedSample( order, first );
+            auto ray = endpoints( index );
+            if ( !Blocked( volumes, ray.first, ray.second, index >= 12 ? prediction : 0, cellBudget ) ) return false;
+        }
+        return true;
     }
 }

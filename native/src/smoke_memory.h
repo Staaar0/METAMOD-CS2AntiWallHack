@@ -28,7 +28,6 @@ namespace awh::smoke
             std::filesystem::path path;
             std::ifstream maps( "/proc/self/maps" );
             path = LinuxMappedPath( maps, reinterpret_cast<uintptr_t>( anchor ) );
-            constexpr uint64_t expectedSize = 41724600;
             if ( !anchor || path.empty() )
             {
                 reason = "server module mapping missing or deleted";
@@ -45,7 +44,7 @@ namespace awh::smoke
 
             auto size = file.tellg();
 
-            if ( size < 0 || static_cast<uint64_t>( size ) != expectedSize )
+            if ( size < 0 || !SupportedSize( static_cast<uint64_t>( size ) ) )
             {
                 reason = "unsupported server binary size: " + std::to_string( static_cast<long long>( size ) );
                 return false;

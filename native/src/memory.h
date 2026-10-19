@@ -32,7 +32,7 @@ namespace awh
                 auto dash = span.find( '-' );
                 if ( dash != std::string::npos && !permissions.empty() && permissions[0] == 'r' )
                     result.emplace_back( std::strtoull( span.substr( 0, dash ).c_str(), nullptr, 16 ),
-                                        std::strtoull( span.substr( dash + 1 ).c_str(), nullptr, 16 ) );
+                                         std::strtoull( span.substr( dash + 1 ).c_str(), nullptr, 16 ) );
             }
             return result;
         }();

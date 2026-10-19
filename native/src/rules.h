@@ -24,6 +24,12 @@ namespace awh
         return tick > deadline;
     }
 
+    // Controller m_bPawnIsAlive is a cached hint
+    inline bool LivePawn( int health, uint8_t life, bool spawning, bool belongsToController )
+    {
+        return health > 0 && life == 0 && !spawning && belongsToController;
+    }
+
     template <class CheckHidden> bool EvaluateHidden( int tick, int grace, int& deadline, CheckHidden check )
     {
         if ( !CanHide( tick, deadline ) )
@@ -34,30 +40,6 @@ namespace awh
 
         deadline = tick + grace;
         return false;
-    }
-
-    inline void InsertNearest( int* slots, float* distances, int& count, int capacity, int slot, float distance )
-    {
-        if ( !std::isfinite( distance ) || distance < 0 )
-            return;
-
-        int pos = 0;
-
-        while ( pos < count && ( distances[pos] < distance || ( distances[pos] == distance && slots[pos] < slot ) ) )
-            ++pos;
-
-        if ( pos >= capacity )
-            return;
-
-        for ( int i = std::min( count, capacity - 1 ); i > pos; --i )
-        {
-            slots[i] = slots[i - 1];
-            distances[i] = distances[i - 1];
-        }
-
-        slots[pos] = slot;
-        distances[pos] = distance;
-        count = std::min( count + 1, capacity );
     }
 
     inline bool Withhold( uint32_t* primary, uint32_t* deletion, int index )
@@ -78,13 +60,17 @@ namespace awh
 
     struct Settings
     {
-        bool Enabled = true, SmokeOcclusion = true;
-        int NearestEnemies = 5, VisibleGraceTicks = 20;
-        float BoundsPadding = 38, PredictionSeconds = .2f;
+        bool Enabled = true, SmokeOcclusion = true, Debug = false;
+        int VisibleGraceTicks = 20;
+        float BoundsPadding = 28;
+        bool CornerPrediction = true;
+        float CornerPredictionSeconds = .2f, CornerMaxDistance = 64;
 
         bool Valid() const
         {
-            return NearestEnemies >= 1 && NearestEnemies <= 63 && VisibleGraceTicks >= 0 && VisibleGraceTicks <= 640 && std::isfinite( BoundsPadding ) && BoundsPadding >= 0 && BoundsPadding <= 256 && std::isfinite( PredictionSeconds ) && PredictionSeconds >= 0 && PredictionSeconds <= 1;
+            return VisibleGraceTicks >= 0 && VisibleGraceTicks <= 640 && std::isfinite( BoundsPadding ) && BoundsPadding >= 0 && BoundsPadding <= 256 &&
+                   std::isfinite( CornerPredictionSeconds ) && CornerPredictionSeconds >= 0 && CornerPredictionSeconds <= .2f &&
+                   std::isfinite( CornerMaxDistance ) && CornerMaxDistance >= 0 && CornerMaxDistance <= 64;
         }
     };
-} 
+}

@@ -72,7 +72,7 @@ namespace awh
         for ( size_t i = 0; i < text.size(); ++i )
         {
             char c = text[i];
-            
+
             if ( quoted )
             {
                 if ( escaped )
@@ -87,12 +87,14 @@ namespace awh
             else if ( c == ',' )
             {
                 size_t j = i + 1;
-                while ( j < text.size() && std::isspace( static_cast<unsigned char>( text[j] ) ) ) ++j;
+                while ( j < text.size() && std::isspace( static_cast<unsigned char>( text[j] ) ) )
+                    ++j;
 
-                if ( j < text.size() && ( text[j] == '}' || text[j] == ']' ) ) text[i] = ' ';
+                if ( j < text.size() && ( text[j] == '}' || text[j] == ']' ) )
+                    text[i] = ' ';
             }
         }
 
         return nlohmann::json::parse( text );
     }
-} 
+}
