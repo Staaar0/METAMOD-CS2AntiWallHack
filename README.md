@@ -66,8 +66,8 @@ For each player, the plugin selects the nearest enemies, up to the configured co
 
 ## Installation
 
-1. Get the packaged .
-2. Extract to your server's `game/csgo/addons` directory.
+1. Get the `antiwallhack` and `maps` packaged .
+2. Extract the antiwallhack package to your server's `game/csgo/addons` directory.
 3. Extract VIS maps to your server's `game/csgo/addons/antiwallhack` directory.
 3. Restart the server.
 
