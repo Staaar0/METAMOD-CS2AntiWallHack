@@ -81,24 +81,27 @@ game/csgo/cfg/AntiWallHack.cfg
 The included config.jsonc contains:
 
 ```
-// AntiWallHack configuration.
+// AntiWallHack configuration. Reload the plugin after editing.
 
 Enabled                      1       // Enable visibility filtering.
+Debug                        0       // Temporary startup/map diagnostic breadcrumbs.
 SmokeOcclusion               1       // Enable smoke checks.
-NearestEnemies               5       // Number of enemies checked.
-VisibleGraceTicks            20      // Visibility grace period.
-BoundsPadding                38      // Extra bounds padding.
-PredictionSeconds            0.2     // Movement prediction.
+VisibleGraceTicks            20      // Visibility hold.
+BoundsPadding                28      // Wall sample padding.
+CornerPrediction             1       // Bounded, wall-clipped viewer input/velocity prediction.
+CornerPredictionSeconds      0.2     // Viewer horizon, 0..0.2 seconds.
+CornerMaxDistance            64      // Maximum viewer lead, 0..64 units.
 ```
 
 | Setting | Value | What it does |
 | :--- | :---: | :--- |
 | `Enabled` | `1` | Turns visibility filtering on or off. |
 | `SmokeOcclusion` | 	`1` | Smoke filtering. |
-| `NearestEnemies` | `5` | Number of nearest enemies checked for each viewer. |
 | `VisibleGraceTicks` | `20` | How long an enemy stays available after a clear check. |
-| `BoundsPadding` | `38` | Helping reveal corner peeks earlier. Measured in game units. |
-| `PredictionSeconds` | `0.2` | How far ahead to estimate moving players' positions. `0.2` means 200 ms. |
+| `BoundsPadding` | `28` | Helping reveal corner peeks earlier. Measured in game units. |
+} `CornerPrediction` | `1` | Bounded, wall-clipped viewer input/velocity prediction. |
+| `CornerPredictionSeconds` | `0.2` | Viewer horizon, 0..0.2 seconds. |
+| `CornerMaxDistance` | `64` | Maximum viewer lead, 0..64 units. |
 
 ## Build
 ```
