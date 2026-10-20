@@ -136,6 +136,8 @@ Open paths can finish after one ray, fully blocked enemies can need all 12 sampl
 
 The plugin reuses visibility decisions within the same tick. If the shared trace budget runs out, it leaves affected enemies available instead of hiding them without a completed check. A smaller budget can reduce trace work but also reduce filtering coverage.
 
+<img src="img/awh.png" width="1200" alt="ACD (AntiCheat Defense)">
+
 ## FAQ
 
 ### Does this stop every wallhack?
