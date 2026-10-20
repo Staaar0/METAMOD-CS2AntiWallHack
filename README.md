@@ -29,6 +29,16 @@ This AC feature is taken from [CS2 AntiCheat Defense](https://github.com/ZusDev/
 <strong>Showcase on Dust2</strong>
 </td>
 </tr>
+<tr>
+<td width="50%" align="center">
+<img src="img/dd2showcase.gif" width="100%" alt="CS2 AntiWallHack blocking wallhack on Dust2"><br>
+<strong>Showcase on Dust2</strong>
+</td>
+<td width="50%" align="center">
+<img src="img/smoke_occlusion.gif" width="100%" alt="CS2 AntiWallHack blocking wallhack on Vertigo"><br>
+<strong>Showcase on Vertigo</strong>
+</td>
+</tr>
 </table>
 
 ### A wallhack cannot render player data that has not been transmitted by the server.
@@ -54,13 +64,10 @@ AntiWallHack aims to reduce the enemy information available to wallhacks. When a
 
 ## How it works
 
-For each player, the plugin selects the nearest enemies, up to the configured count. It then follows this process:
-
-1. **Nearby enemies stay available.** Enemies within `AlwaysVisibleDistance` bypass wall checks.
-2. **Check for a clear path.** Rays run from the viewer's eyes to several points around each selected enemy.
-3. **Check ahead when moving.** Additional rays use estimated future positions based on current movement speed and direction.
-4. **Keep visible enemies available.** One clear or uncertain result is enough to allow normal transmission.
-5. **Hide fully blocked enemies.** If every tested path is blocked and the grace period has expired, the plugin withholds that enemy and their collected equipment from that viewer.
+1. **Check for a clear path.** Rays run from the viewer's eyes to several points around each selected enemy.
+2. **Check ahead when moving.** Additional rays use estimated future positions based on current movement speed and direction.
+3. **Keep visible enemies available.** One clear or uncertain result is enough to allow normal transmission.
+4. **Hide fully blocked enemies.** If every tested path is blocked and the grace period has expired, the plugin withholds that enemy and their collected equipment from that viewer.
 
 <img src="img/wh.png" width="1200" alt="ACD (AntiCheat Defense)">
 
@@ -119,13 +126,11 @@ ambuild
 
 ### Adjusting corner pop-in
 
-Larger `BoundsPadding` and `PredictionSeconds` values can make enemies available earlier. A longer `VisibleGraceTicks` period delays hiding them again. These settings trade stricter hiding for smoother appearances and prediction is an estimate not a guarantee.
-
-Increasing `AlwaysVisibleDistance` also reveals nearby enemies earlier, but allows them through walls within that radius.
+Larger `BoundsPadding` and `CornerPrediction` values can make enemies available earlier. A longer `VisibleGraceTicks` period delays hiding them again. These settings trade stricter hiding for smoother appearances and prediction is an estimate not a guarantee.
 
 ## Performance
 
-Ray tracing is the main workload. Open paths can finish after one ray; fully blocked enemies can need all 12 sample rays, plus another 12 for predicted positions when players move.
+Open paths can finish after one ray, fully blocked enemies can need all 12 sample rays, plus another 12 for predicted positions when players move.
 
 The plugin reuses visibility decisions within the same tick. If the shared trace budget runs out, it leaves affected enemies available instead of hiding them without a completed check. A smaller budget can reduce trace work but also reduce filtering coverage.
 
@@ -133,12 +138,8 @@ The plugin reuses visibility decisions within the same tick. If the shared trace
 
 ### Does this stop every wallhack?
 
-No. It limits transmission of selected hidden enemies and their equipment. It does not filter sound, radar messages or all other information a cheat might use.
+No. It limits transmission of hidden enemies and their equipment. It does not filter sound, radar messages or all other information a cheat might use.
 
 ### Does smoke hide enemies from transmission?
 
 Yes. Smoke is part of the plugin's visibility checks.
-
-### Why can I still see a nearby enemy through a wall with a cheat?
-
-Enemies inside `AlwaysVisibleDistance` bypass ray checks. Other reasons include the grace period, an exhausted trace budget, or the enemy being outside the nearest group selected for checking.
