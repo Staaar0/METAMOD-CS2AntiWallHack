@@ -147,4 +147,4 @@ No. It limits transmission of hidden enemies and their equipment. It does not fi
 Yes. Smoke is part of the plugin's visibility checks.
 
 ## Discord
-<a href="https://discord.gg/d5uvMmUpuE"><img src="./discord.png"></a>
+<a href="https://discord.gg/d5uvMmUpuE"><img src="img/discord.png"></a>
