@@ -12,6 +12,7 @@
 [![Protection](https://img.shields.io/badge/protection-WallHack-6f42c1?style=for-the-badge)](#features)
 [![Framework](https://img.shields.io/badge/build-Metamod-2ea44f?style=for-the-badge)](https://github.com/swiftly-solution/swiftlys2)
 [![License](https://img.shields.io/badge/license-GNU%20GPL%20v3-2ea44f?style=for-the-badge)](LICENSE)
+[![Discord](https://img.shields.io/badge/Discord-Join-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/d5uvMmUpuE)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy_Me_a_Coffee-Support_Development-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=000000)](https://buymeacoffee.com/cs4fun)
 
 This AC feature is taken from [CS2 AntiCheat Defense](https://github.com/ZusDev/CS2-Anticheat-Defense)
@@ -144,3 +145,6 @@ No. It limits transmission of hidden enemies and their equipment. It does not fi
 ### Does smoke hide enemies from transmission?
 
 Yes. Smoke is part of the plugin's visibility checks.
+
+## Discord
+<a href="https://discord.gg/d5uvMmUpuE"><img src="./discord.png"></a>
