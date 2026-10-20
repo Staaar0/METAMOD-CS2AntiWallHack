@@ -99,7 +99,7 @@ CornerMaxDistance            64      // Maximum viewer lead, 0..64 units.
 | `SmokeOcclusion` | 	`1` | Smoke filtering. |
 | `VisibleGraceTicks` | `20` | How long an enemy stays available after a clear check. |
 | `BoundsPadding` | `28` | Helping reveal corner peeks earlier. Measured in game units. |
-} `CornerPrediction` | `1` | Bounded, wall-clipped viewer input/velocity prediction. |
+| `CornerPrediction` | `1` | Bounded, wall-clipped viewer input/velocity prediction. |
 | `CornerPredictionSeconds` | `0.2` | Viewer horizon, 0..0.2 seconds. |
 | `CornerMaxDistance` | `64` | Maximum viewer lead, 0..64 units. |
 
