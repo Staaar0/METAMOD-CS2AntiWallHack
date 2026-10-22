@@ -1,0 +1,8 @@
+{
+  "linux": {
+    "GameEntitySystem": 80,
+    "TraceShape": "55 48 8D 05 ? ? ? ? 48 89 E5 41 57 49 89 F7 41 56 48 8D 35 ? ? ? ? 49 89 CE",
+    "GameEventManager": "48 8D 05 ? ? ? ? 49 89 F4 31 C9",
+    "FireEvent": 8
+  }
+}

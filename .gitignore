@@ -1,0 +1,10 @@
+bin/
+obj/
+build/
+deps/
+tools/
+src/*.pb.h
+src/*.pb.cc
+obj*/
+package/
+__pycache__/

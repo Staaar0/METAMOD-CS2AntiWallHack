@@ -1,0 +1,25 @@
+BasedOnStyle: Microsoft
+ColumnLimit: 180
+IndentWidth: 4
+NamespaceIndentation: All
+FixNamespaceComments: false
+SpacesInParens: Custom
+SpacesInParensOptions:
+  InConditionalStatements: true
+  InCStyleCasts: true
+  InEmptyParentheses: false
+  Other: true
+SpaceBeforeParens: ControlStatements
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortLambdasOnASingleLine: None
+AllowShortBlocksOnASingleLine: Never
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+BreakBeforeBraces: Allman
+PointerAlignment: Left
+SortIncludes: Never
+
+SeparateDefinitionBlocks: Always
+InsertBraces: true
+BinPackArguments: true
+BinPackParameters: BinPack
