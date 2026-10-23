@@ -102,9 +102,8 @@ for task in MMSPlugin.tasks:
     sdk_name = binary_filename.split(".")[-1]
 
     packages[sdk_name].addBinary(task.binary)
-    packages[sdk_name].addFile("gamedata.jsonc")
-    packages[sdk_name].addFile("THIRD_PARTY.md")
-    packages[sdk_name].addFile("SMOKE_NOTICES.md")
+    packages[sdk_name].addFile("gamedata.txt")
+    packages[sdk_name].addFile("LICENSE")
     packages[sdk_name].addFile("vis-baker/LICENSE.ByDexter", "LICENSE.ByDexter")
     cfg_path = os.path.join(sdk_name, "cfg")
     builder.AddFolder(cfg_path)

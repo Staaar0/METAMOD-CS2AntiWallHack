@@ -15,11 +15,9 @@ bool AntiWallHack::Load( PluginId id, ISmmAPI* ismm, char* error, size_t maxlen,
     GET_V_IFACE_CURRENT( GetServerFactory, gameEntities, ISource2GameEntities, INTERFACEVERSION_SERVERGAMEENTS );
     GET_V_IFACE_CURRENT( GetServerFactory, serverDll, ISource2Server, INTERFACEVERSION_SERVERGAMEDLL );
     GET_V_IFACE_CURRENT( GetEngineFactory, network, INetworkServerService, NETWORKSERVERSERVICE_INTERFACE_VERSION );
-    GET_V_IFACE_CURRENT( GetEngineFactory, resources, IGameResourceService,
-                         GAMERESOURCESERVICESERVER_INTERFACE_VERSION );
+    GET_V_IFACE_CURRENT( GetEngineFactory, resources, IGameResourceService, GAMERESOURCESERVICESERVER_INTERFACE_VERSION );
     GET_V_IFACE_CURRENT( GetEngineFactory, g_pCVar, ICvar, CVAR_INTERFACE_VERSION );
-    ISchemaSystem* schema =
-        static_cast<ISchemaSystem*>( ismm->GetEngineFactory()( SCHEMASYSTEM_INTERFACE_VERSION, nullptr ) );
+    ISchemaSystem* schema = static_cast<ISchemaSystem*>( ismm->GetEngineFactory()( SCHEMASYSTEM_INTERFACE_VERSION, nullptr ) );
 
     if ( !schema )
     {
@@ -34,27 +32,34 @@ bool AntiWallHack::Load( PluginId id, ISmmAPI* ismm, char* error, size_t maxlen,
         gamePath = baseDir;
         configPath = baseDir / "cfg/AntiWallHack.cfg";
         LoadSettings();
+        updateCancel = std::make_shared<std::atomic<bool>>( false );
+        updatePending = {};
+        updateInstalled = false;
+        updateNextCheck = std::chrono::steady_clock::now() + std::chrono::seconds( 30 );
         DebugStage( "Load: configuration loaded" );
-        auto data = ReadGamedata( baseDir / "addons/antiwallhack/gamedata.jsonc" );
+        auto data = ReadGamedata( baseDir / "addons/antiwallhack/gamedata.txt" );
         auto platform = data.at( "linux" );
         const char* module = "libserver.so";
         entitySystemOffset = platform.at( "GameEntitySystem" ).get<int>();
 
         if ( entitySystemOffset < 0 || entitySystemOffset > 1024 || entitySystemOffset % 8 )
+        {
             throw std::runtime_error( "Invalid GameEntitySystem offset" );
+        }
 
         auto* scope = schema->FindTypeScopeForModule( module );
 
         if ( !scope )
+        {
             throw std::runtime_error( "Server schema scope unavailable" );
+        }
 
         DebugStage( "Load: resolving schema offsets" );
 
         if ( !offsets.Init( scope ) )
         {
             ismm->Format( error, maxlen, "AntiWallHack: required schema fields unavailable, see console" );
-            META_CONPRINTF(
-                "[AntiWallHack] Startup rejected: required schema fields unavailable. No hooks installed.\n" );
+            META_CONPRINTF( "[AntiWallHack] Startup rejected: required schema fields unavailable. No hooks installed.\n" );
             return false;
         }
 
@@ -64,41 +69,46 @@ bool AntiWallHack::Load( PluginId id, ISmmAPI* ismm, char* error, size_t maxlen,
             offsets.buttons = Offsets::Find( scope, "CPlayer_MovementServices", "m_nButtons" );
 
             if ( auto* globalScope = schema->GlobalTypeScope() )
+            {
                 offsets.buttonStates = Offsets::Find( globalScope, "CInButtonState", "m_pButtonStates" );
+            }
 
             if ( offsets.movement < 0 || offsets.buttons < 0 || offsets.buttonStates < 0 )
-                META_CONPRINTF( "[AntiWallHack] Movement input schema unavailable; corner prediction uses bounded "
+            {
+                META_CONPRINTF( "[AntiWallHack] Movement input schema unavailable, corner prediction uses bounded "
                                 "velocity only.\n" );
+            }
         }
 
         int index = KHook::GetVtableIndex( &ISource2GameEntities::CheckTransmit );
-        DebugStage( "Load: schema ready; resolving trace signature" );
+        DebugStage( "Load: schema ready, resolving trace signature" );
 
         if ( index < 0 || index >= 100 )
+        {
             throw std::runtime_error( "Invalid CheckTransmit vtable index" );
+        }
 
         auto* serverFunction = ( *reinterpret_cast<void***>( gameEntities ) )[index];
 
-        traceFunction = reinterpret_cast<TraceFunction>(
-            FindServerFunction( platform.at( "TraceShape" ).get<std::string>(), serverFunction ) );
+        traceFunction = reinterpret_cast<TraceFunction>( FindServerFunction( platform.at( "TraceShape" ).get<std::string>(), serverFunction ) );
 
         if ( !traceFunction )
-            throw std::runtime_error( "TraceShape signature missing or ambiguous; update gamedata.jsonc" );
+        {
+            throw std::runtime_error( "TraceShape signature missing or ambiguous, update gamedata.txt" );
+        }
 
         traceHook = std::make_unique<TraceHook>( this, &AntiWallHack::OnTrace, nullptr );
         DebugStage( "Load: configuring trace hook" );
         traceHook->Configure( traceFunction );
-        transmitHook = std::make_unique<TransmitHook>( &ISource2GameEntities::CheckTransmit, this, nullptr,
-                                                       &AntiWallHack::OnTransmit );
+        transmitHook = std::make_unique<TransmitHook>( &ISource2GameEntities::CheckTransmit, this, nullptr, &AntiWallHack::OnTransmit );
         DebugStage( "Load: installing transmit hook" );
         transmitHook->Add( gameEntities );
         hooked = true;
         using FrameCallback = KHook::Return<void> ( AntiWallHack::* )( ISource2Server*, bool, bool, bool );
-        frameHook = std::make_unique<FrameHook>( &ISource2Server::GameFrame, this,
-                                                 static_cast<FrameCallback>( nullptr ), &AntiWallHack::OnFrame );
+        frameHook = std::make_unique<FrameHook>( &ISource2Server::GameFrame, this, static_cast<FrameCallback>( nullptr ), &AntiWallHack::OnFrame );
         frameHook->Add( serverDll );
         ismm->AddListener( this, this );
-        DebugStage( "Load: hooks installed; configuring convar" );
+        DebugStage( "Load: hooks installed, configuring convar" );
         ConfigureConvar();
         SetupSmoke( serverFunction, scope, platform );
         DebugStage( "Load: completed" );
@@ -131,6 +141,13 @@ bool AntiWallHack::Load( PluginId id, ISmmAPI* ismm, char* error, size_t maxlen,
 
 bool AntiWallHack::Unload( char*, size_t )
 {
+    updateCancel->store( true );
+
+    if ( updatePending.valid() )
+    {
+        updatePending.wait();
+    }
+
     if ( frameHook )
     {
         frameHook->Remove( serverDll );
@@ -138,12 +155,18 @@ bool AntiWallHack::Unload( char*, size_t )
     }
 
     if ( visCancel )
+    {
         visCancel->store( true );
-    DebugStage( "Unload: entered; waiting for VIS worker" );
+    }
+
+    DebugStage( "Unload: entered, waiting for VIS worker" );
 
     if ( visPending.valid() )
+    {
         visPending.wait();
-    DebugStage( "Unload: VIS worker finished; removing hooks" );
+    }
+
+    DebugStage( "Unload: VIS worker finished, removing hooks" );
 
     if ( hooked && transmitHook )
     {
@@ -160,7 +183,9 @@ bool AntiWallHack::Unload( char*, size_t )
     ConVarRefAbstract cvar( "sv_enable_donttransmit" );
 
     if ( convarChanged && cvar.IsValidRef() && !cvar.GetBool() )
+    {
         cvar.SetString( previousConvar.c_str() );
+    }
 
     convarChanged = false;
     visibility = {};
@@ -201,7 +226,7 @@ const char* AntiWallHack::GetLicense()
 
 const char* AntiWallHack::GetVersion()
 {
-    return "1.0.4";
+    return "1.0.5";
 }
 
 const char* AntiWallHack::GetDate()

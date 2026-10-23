@@ -2,7 +2,7 @@
 
 from pathlib import Path
 import sys, zlib, hashlib, re
-import json, struct
+import shlex, struct
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "tools/reverse"))
 from elftools.elf.elffile import ELFFile
@@ -44,7 +44,9 @@ with path.open("rb") as file:
         print("candidate", hex(offset + delta))
         for ins in decoder.disasm(data[offset : offset + 150], offset + delta):
             print(hex(ins.address), ins.mnemonic, ins.op_str)
-    for base, size in ((0x1452AC0, 0x170), (0x1452E30, 0xC00), (0x1454280, 0x180), (0x1468530, 0x250)):
+    shift = start + matches[0].start() + delta - 0x1453AA6 if matches else 0
+    for original, size in ((0x1452AC0, 0x170), (0x1452E30, 0xC00), (0x1454280, 0x180), (0x1468530, 0x250)):
+        base = original + shift
         print("smoke code region", hex(base))
         for ins in decoder.disasm(data[base - delta : base - delta + size], base):
             if any(
@@ -63,7 +65,11 @@ with path.open("rb") as file:
                 )
             ) or ins.mnemonic in ("shl", "sal"):
                 print(hex(ins.address), ins.mnemonic, ins.op_str)
-    gamedata = json.loads((Path(__file__).resolve().parent / "gamedata.jsonc").read_text())["linux"]
+    gamedata = {}
+    for line in (Path(__file__).resolve().parent / "gamedata.txt").read_text().splitlines():
+        tokens = shlex.split(line, comments=True)
+        if tokens and not tokens[0].startswith("//") and len(tokens) >= 2:
+            gamedata[tokens[0]] = tokens[1]
     for name in ("TraceShape", "GameEventManager"):
         tokens = gamedata[name].split()
         pattern = b"".join(b"." if token in ("?", "??") else re.escape(bytes.fromhex(token)) for token in tokens)

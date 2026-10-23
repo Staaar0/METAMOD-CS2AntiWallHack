@@ -38,9 +38,27 @@ void AntiWallHack::SetupSmoke( void* serverFunction, CSchemaSystemTypeScope* sco
     }
 
     std::string reason;
+    std::vector<smoke::Fingerprint> fingerprints;
+
+    try
+    {
+        smokeLayout = SmokeLayout( platform );
+        smokeFrame.resize( smokeLayout.frameBytes );
+
+        for ( const auto& fingerprint : platform.at( "ServerBinaries" ) )
+        {
+            fingerprints.push_back( { fingerprint.at( "size" ).get<uint64_t>(), fingerprint.at( "crc" ).get<uint32_t>() } );
+        }
+    }
+    catch ( const std::exception& ex )
+    {
+        DisableSmoke( ex.what() );
+        return;
+    }
+
     DebugStage( "Smoke: verifying server fingerprint" );
 
-    if ( !smoke::VerifyModule( serverFunction, reason ) )
+    if ( !smoke::VerifyModule( serverFunction, fingerprints, reason ) )
     {
         DisableSmoke( reason );
         return;
@@ -48,7 +66,7 @@ void AntiWallHack::SetupSmoke( void* serverFunction, CSchemaSystemTypeScope* sco
 
     try
     {
-        DebugStage( "Smoke: fingerprint accepted; resolving schema/event manager" );
+        DebugStage( "Smoke: fingerprint accepted, resolving schema/event manager" );
         smokeEffectOffset = Offsets::Find( scope, "CSmokeGrenadeProjectile", "m_bDidSmokeEffect" );
 
         if ( smokeEffectOffset < 0 )
@@ -166,9 +184,7 @@ void AntiWallHack::CaptureSmoke()
                 volume = std::make_unique<smoke::Volume>();
             }
 
-            constexpr size_t volumeOffset = 3736;
-
-            if ( !smoke::ReadSnapshot( reinterpret_cast<uintptr_t>( entity ), volumeOffset, frameTime, *volume, smokeFrame, smoke::ReadMemory ) )
+            if ( !smoke::ReadSnapshot( reinterpret_cast<uintptr_t>( entity ), smokeLayout, frameTime, *volume, smokeFrame, smoke::ReadMemory ) )
             {
                 // An unpublished/unstable voxel frame only invalidates this tick.
                 smokeVolumes.clear();
@@ -177,7 +193,7 @@ void AntiWallHack::CaptureSmoke()
                 if ( now >= smokeNextWarning )
                 {
                     smokeNextWarning = now + std::chrono::seconds( 30 );
-                    META_CONPRINTF( "[AntiWallHack] Smoke snapshot unavailable; revealing this tick and retrying. Wall "
+                    META_CONPRINTF( "[AntiWallHack] Smoke snapshot unavailable, revealing this tick and retrying. Wall "
                                     "filtering continues.\n" );
                 }
 

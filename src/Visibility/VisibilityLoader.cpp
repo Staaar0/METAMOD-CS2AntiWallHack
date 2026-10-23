@@ -146,7 +146,7 @@ void AntiWallHack::UpdateVisibility()
                                      }
                                      else
                                      {
-                                         DebugStage( "VIS worker: priority unchanged; throttled I/O still enabled" );
+                                         DebugStage( "VIS worker: priority unchanged, throttled I/O still enabled" );
                                      }
 
                                      DebugStage( "VIS worker: entered" );

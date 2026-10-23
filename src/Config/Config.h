@@ -82,6 +82,10 @@ namespace awh
             {
                 result.Enabled = boolean();
             }
+            else if ( key == "AutoUpdate" )
+            {
+                result.AutoUpdate = boolean();
+            }
             else if ( key == "Debug" )
             {
                 result.Debug = boolean();
@@ -112,11 +116,11 @@ namespace awh
             }
             else if ( key == "MutualReveal" )
             {
-                continue; // Removed compatibility key; shared pair grace is always enabled.
+                continue; // Removed compatibility key, shared pair grace is always enabled.
             }
             else if ( key == "NearestEnemies" || key == "SetDontTransmitToZero" || key == "MaxTracesPerTick" || key == "AlwaysVisibleDistance" || key == "PredictionSeconds" )
             {
-                continue; // Obsolete settings are ignored; they are no longer configurable.
+                continue; // Obsolete settings are ignored, they are no longer configurable.
             }
             else
             {

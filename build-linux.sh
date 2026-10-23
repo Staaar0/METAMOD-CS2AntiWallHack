@@ -27,5 +27,10 @@ g++ -std=c++17 -I src tests/smoke_visibility_test.cpp -o tools/smoke_visibility_
 tools/smoke_visibility_test-linux
 g++ -std=c++17 -I src tests/m_visibility_test.cpp -o tools/m_visibility_test-linux
 tools/m_visibility_test-linux
+for test in gamedata_test update_policy_test map_update_test; do
+  g++ -std=c++17 -I src -I deps/json "tests/$test.cpp" -o "tools/$test-linux"
+  "tools/$test-linux"
+done
+
 python3 check_abi.py obj/package/cs2/addons/antiwallhack/bin/linuxsteamrt64/antiwallhack.so
 python3 package.py --build obj/package/cs2

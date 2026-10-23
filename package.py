@@ -25,21 +25,21 @@ if args.build:
     # Package current configuration sources, even when reusing an existing binary staging folder.
     for source, destination in (
         (root / "AntiWallHack.cfg", install / "cfg/AntiWallHack.cfg"),
-        (root / "gamedata.jsonc", install / "addons/antiwallhack/gamedata.jsonc"),
+        (root / "gamedata.txt", install / "addons/antiwallhack/gamedata.txt"),
         (root / "vis-baker/LICENSE.ByDexter", install / "addons/antiwallhack/LICENSE.ByDexter"),
         (root / "LICENSE", install / "addons/antiwallhack/LICENSE"),
     ):
         destination.parent.mkdir(parents=True, exist_ok=True)
         if source.resolve() != destination.resolve():
             shutil.copy2(source, destination)
-    for required in ("addons/metamod/antiwallhack.vdf", "cfg/AntiWallHack.cfg", "addons/antiwallhack/gamedata.jsonc"):
+    for required in ("addons/metamod/antiwallhack.vdf", "cfg/AntiWallHack.cfg", "addons/antiwallhack/gamedata.txt"):
         if not (install / required).is_file():
             parser.error(f"Missing {required}")
     files += [
         (p, p.relative_to(install).as_posix())
         for folder in ("addons", "cfg")
         for p in (install / folder).rglob("*")
-        if p.is_file() and p.relative_to(install).as_posix() != "addons/antiwallhack/config.jsonc"
+        if p.is_file() and p.name not in {"config.jsonc", "gamedata.jsonc"} and not p.name.endswith(".previous")
     ]
 names = [
     "AMBuilder",
@@ -52,7 +52,7 @@ names = [
     "inspect_elf.py",
     "README.md",
     "plugin-metadata.json",
-    "gamedata.jsonc",
+    "gamedata.txt",
 ]
 names += [
     "exports.map",

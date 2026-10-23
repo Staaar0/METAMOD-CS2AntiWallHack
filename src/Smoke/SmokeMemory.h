@@ -24,7 +24,7 @@ namespace awh::smoke
         return ReadMemory( address, &output, sizeof( output ) );
     }
 
-    inline bool VerifyModule( void* anchor, std::string& reason )
+    inline bool VerifyModule( void* anchor, const std::vector<Fingerprint>& fingerprints, std::string& reason )
     {
         try
         {
@@ -48,7 +48,12 @@ namespace awh::smoke
 
             auto size = file.tellg();
 
-            if ( size < 0 || !SupportedSize( static_cast<uint64_t>( size ) ) )
+            if ( size < 0 || std::none_of(
+                                 fingerprints.begin(), fingerprints.end(),
+                                 [&]( const auto& fingerprint )
+                                 {
+                                     return fingerprint.size == static_cast<uint64_t>( size );
+                                 } ) )
             {
                 reason = "unsupported server binary size: " + std::to_string( static_cast<long long>( size ) );
                 return false;
@@ -57,7 +62,7 @@ namespace awh::smoke
             file.seekg( 0 );
             auto crc = Crc32( file );
 
-            if ( file.bad() || !Matches( static_cast<uint64_t>( size ), crc ) )
+            if ( file.bad() || !Matches( static_cast<uint64_t>( size ), crc, fingerprints ) )
             {
                 reason = "unsupported server CRC32: " + std::to_string( crc );
                 return false;
@@ -65,9 +70,9 @@ namespace awh::smoke
 
             return true;
         }
-        catch ( const std::exception& e )
+        catch ( const std::exception& )
         {
-            reason = e.what();
+            reason = "server binary verification failed";
             return false;
         }
     }

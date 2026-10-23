@@ -32,7 +32,7 @@ includes += [
         "public/tier1",
         "public/mathlib",
         "public/entity2",
-        "public/engine",
+        "public/engine2",
         "game/shared",
         "game/server",
         "common",
@@ -71,7 +71,7 @@ if len(sys.argv) > 1 and sys.argv[1] == "link-linux":
         + linux
         + sources
         + [
-            "deps/hl2sdk-cs2/tier1/convar.cpp",
+            "deps/hl2sdk-cs2/tier0_perproject/convar.cpp",
             "deps/hl2sdk-cs2/public/tier0/memoverride.cpp",
             "deps/hl2sdk-cs2/lib/linux64/mathlib.a",
             "deps/hl2sdk-cs2/lib/linux64/interfaces.a",
@@ -97,6 +97,9 @@ else:
         "vis_test",
         "smoke_visibility_test",
         "m_visibility_test",
+        "gamedata_test",
+        "update_policy_test",
+        "map_update_test",
     ):
         run(
             [
@@ -119,7 +122,16 @@ else:
 
     # Portable policy tests can run on the build host without compiling a plugin for that host.
     if sys.platform == "win32":
-        for name in ("targeting_test", "vis_test", "rules_test", "smoke_visibility_test", "m_visibility_test"):
+        for name in (
+            "targeting_test",
+            "vis_test",
+            "rules_test",
+            "smoke_visibility_test",
+            "m_visibility_test",
+            "gamedata_test",
+            "update_policy_test",
+            "map_update_test",
+        ):
             run(
                 [
                     "-target",

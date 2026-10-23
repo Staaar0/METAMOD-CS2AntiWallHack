@@ -177,7 +177,7 @@ namespace awh
             }
 
             auto sources = data.at( "sources" );
-            stage( "VIS load: dimensions checked; verifying archive fingerprints" );
+            stage( "VIS load: dimensions checked, verifying archive fingerprints" );
 
             if ( !sources.is_array() || sources.empty() || sources.size() > 128 )
             {
@@ -221,7 +221,7 @@ namespace awh
 
                 if ( FileHash( sourceRoot / relative, sourceSize, cancelled ) != source.at( "hash" ).get<uint64_t>() )
                 {
-                    throw std::runtime_error( "VIS source changed; rebake the map" );
+                    throw std::runtime_error( "VIS source changed, rebake the map" );
                 }
 
                 const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>( std::chrono::steady_clock::now() - started ).count();
@@ -229,14 +229,14 @@ namespace awh
                 stage( completed.c_str() );
             }
 
-            stage( mapSource ? "VIS load: source loop completed; current archive matched" : "VIS load: source loop completed; current archive missing" );
+            stage( mapSource ? "VIS load: source loop completed, current archive matched" : "VIS load: source loop completed, current archive missing" );
 
             if ( !mapSource )
             {
                 throw std::runtime_error( "VIS manifest lacks current map VPK: " + expectedSource );
             }
 
-            stage( "VIS load: fingerprints verified; allocating table" );
+            stage( "VIS load: fingerprints verified, allocating table" );
 
             if ( progress )
             {
@@ -247,7 +247,7 @@ namespace awh
             loaded.cells.resize( size_t( grid ) );
             loaded.floors.resize( loaded.count );
             loaded.bits.resize( size_t( bitCount ) );
-            stage( "VIS load: allocation complete; reading payload" );
+            stage( "VIS load: allocation complete, reading payload" );
             uint64_t hash = 14695981039346656037ULL;
 
             auto read = [&]( void* buffer, size_t size )
@@ -282,7 +282,7 @@ namespace awh
             read( loaded.cells.data(), loaded.cells.size() * 4 );
             read( loaded.floors.data(), loaded.floors.size() * 12 );
             read( loaded.bits.data(), loaded.bits.size() * 8 );
-            stage( "VIS load: payload read; validating checksum and cells" );
+            stage( "VIS load: payload read, validating checksum and cells" );
 
             if ( hash != data.at( "checksum" ).get<uint64_t>() )
             {

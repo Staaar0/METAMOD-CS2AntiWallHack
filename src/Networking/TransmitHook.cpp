@@ -31,21 +31,21 @@ KHook::Return<void> AntiWallHack::OnTransmit( ISource2GameEntities*, CCheckTrans
 
         if ( tracing )
         {
-            DebugStage( "OnTransmit: readiness guard passed; GetAddonName" );
+            DebugStage( "OnTransmit: readiness guard passed, GetAddonName" );
         }
 
         const char* addon = server->GetAddonName();
 
         if ( tracing )
         {
-            DebugStage( "OnTransmit: GetAddonName returned; GetMapName" );
+            DebugStage( "OnTransmit: GetAddonName returned, GetMapName" );
         }
 
         const char* activeMap = server->GetMapName();
 
         if ( tracing )
         {
-            DebugStage( "OnTransmit: GetMapName returned; resolving VIS identity" );
+            DebugStage( "OnTransmit: GetMapName returned, resolving VIS identity" );
         }
 
         auto identity = MapIdentity( activeMap ? activeMap : "", addon ? addon : "" );

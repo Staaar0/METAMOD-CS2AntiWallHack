@@ -12,14 +12,14 @@ for name, url, branch, revision, recursive in [
         "metamod-source",
         "https://github.com/alliedmodders/metamod-source.git",
         "master",
-        "9c49d4c9733d94605901fb80148ea8c553f059d3",
+        "170058a2f0dbd58106b7c76bfe88a94672295356",
         True,
     ),
     (
         "hl2sdk-cs2",
-        "https://github.com/alliedmodders/hl2sdk.git",
+        "https://github.com/alliedmodders/s2sdk.git",
         "cs2",
-        "3ea5305b0efe980fdf32ab4c87782e3343e33a90",
+        "d4a8b46676ded25b9d956287ec40ef3c9e12c14c",
         False,
     ),
 ]:

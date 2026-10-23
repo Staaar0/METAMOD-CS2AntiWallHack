@@ -1,7 +1,10 @@
 #pragma once
 #include <ISmmPlugin.h>
-#include <iserver.h>
-#include <eiface.h>
+#include <engine2/isource2server.h>
+#include <engine2/inetworkserverservice.h>
+#include <engine2/networkgameserverbase.h>
+#include <engine2/igameresourceservice.h>
+#include <engine2/ivengineserver2.h>
 #include <entity2/entitysystem.h>
 #include <gametrace.h>
 #include <schemasystem/schemasystem.h>
@@ -29,6 +32,8 @@
 #include "Helpers/Memory.h"
 #include "Helpers/Jsonc.h"
 #include "Config/Config.h"
+#include "Config/Gamedata.h"
+#include "Updates/ReleaseUpdater.h"
 #include "Smoke/SmokeMemory.h"
 #include <igameevents.h>
 
@@ -56,6 +61,10 @@ class AntiWallHack final : public ISmmPlugin, public IMetamodListener
     Offsets offsets;
     Settings settings;
     fs::path configPath, gamePath;
+    std::shared_ptr<std::atomic<bool>> updateCancel = std::make_shared<std::atomic<bool>>( false );
+    std::future<updates::Result> updatePending;
+    std::chrono::steady_clock::time_point updateNextCheck{};
+    bool updateInstalled = false;
     VisibilityMap visibility;
     std::string visMapName;
     std::string visLoadingMap;
@@ -94,6 +103,7 @@ class AntiWallHack final : public ISmmPlugin, public IMetamodListener
     uintptr_t eventManagerAddress = 0;
     bool eventHooked = false, smokeAvailable = false, smokeCaptured = false;
     int smokeEffectOffset = -1, smokeCellBudget = 262144;
+    smoke::Layout smokeLayout;
     std::chrono::steady_clock::time_point smokeNextWarning{};
     float frameTime = 0;
     std::array<std::unique_ptr<smoke::Volume>, 32> smokeStorage;
@@ -119,6 +129,7 @@ class AntiWallHack final : public ISmmPlugin, public IMetamodListener
 
     void DebugStage( const char* stage ) noexcept;
     void NotifyMissingVisibility();
+    void PollUpdates();
     KHook::Return<void> OnFrame( ISource2Server*, bool, bool, bool );
     Json ReadGamedata( const fs::path& path );
     void LoadSettings();

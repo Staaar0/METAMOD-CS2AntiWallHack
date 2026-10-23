@@ -2,13 +2,13 @@
 
 KHook::Return<void> AntiWallHack::OnFrame( ISource2Server*, bool, bool, bool )
 {
-    // File-only validation needs map identity/physics readiness, not a human
     // client's CheckTransmit callback. Keep empty servers prepared as well.
     if ( settings.Enabled && traceManager && !visMapName.empty() )
     {
         UpdateVisibility();
     }
 
+    PollUpdates();
     NotifyMissingVisibility();
     return { KHook::Action::Ignore };
 }
@@ -19,7 +19,7 @@ void AntiWallHack::OnLevelInit( const char* map, const char*, const char*, const
     debugTraceSeen.store( false );
     debugTransmitSeen = debugTransmitReady = debugFrameSeen = false;
     LoadVisibility( map, false );
-    DebugStage( "OnLevelInit: VIS deferred; resetting frame state" );
+    DebugStage( "OnLevelInit: VIS deferred, resetting frame state" );
     Reset();
     smokeExplosions.Reset();
     smokeCaptured = false;

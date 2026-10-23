@@ -9,7 +9,7 @@ Json AntiWallHack::ReadGamedata( const fs::path& path )
         throw std::runtime_error( "Cannot open " + path.string() );
     }
 
-    return ParseJsonc( std::string( std::istreambuf_iterator<char>( file ), {} ) );
+    return ParseGamedata( file );
 }
 
 void AntiWallHack::LoadSettings()

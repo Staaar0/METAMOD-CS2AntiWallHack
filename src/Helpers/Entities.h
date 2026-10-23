@@ -1,6 +1,6 @@
 #pragma once
 #include <ISmmPlugin.h>
-#include <entity2/entitysystem.h>
+#include <gameentitysystem.h>
 #include <gametrace.h>
 #include <schemasystem/schemasystem.h>
 #include "Helpers/Memory.h"
@@ -63,12 +63,12 @@ namespace awh
 
         for ( int depth = 0; info && depth < 32; ++depth )
         {
-            if ( !std::strcmp( info->m_pszName, name ) )
+            if ( !std::strcmp( info->m_pName, name ) )
             {
                 return true;
             }
 
-            info = info->m_nBaseClassCount ? info->m_pBaseClasses[0].m_pClass : nullptr;
+            info = info->m_nNumBaseClasses ? info->m_pBaseClasses[0].m_pClass : nullptr;
         }
 
         return false;

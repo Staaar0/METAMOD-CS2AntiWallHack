@@ -68,7 +68,7 @@ namespace awh
 
     struct Settings
     {
-        bool Enabled = true, SmokeOcclusion = true, Debug = false;
+        bool Enabled = true, SmokeOcclusion = true, Debug = false, AutoUpdate = true;
         int VisibleGraceTicks = 20;
         float BoundsPadding = 28;
         bool CornerPrediction = true;

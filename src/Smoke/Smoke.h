@@ -9,6 +9,7 @@
 #include <vector>
 #include <sstream>
 #include "Helpers/VisibilityRules.h"
+#include "Smoke/SmokeLayout.h"
 
 namespace awh::smoke
 {
@@ -301,37 +302,39 @@ namespace awh::smoke
         return value;
     }
 
-    template <class Reader> bool ReadSnapshot( uintptr_t entity, size_t volumeOffset, float now, Volume& output, std::vector<uint8_t>& frame, Reader read )
+    template <class Reader> bool ReadSnapshot( uintptr_t entity, const Layout& layout, float now, Volume& output, std::vector<uint8_t>& frame, Reader read )
     {
-        if ( !entity || volumeOffset > uintptr_t( INTPTR_MAX ) - 240 || entity > uintptr_t( INTPTR_MAX ) - volumeOffset - 240 || !std::isfinite( now ) ||
-             frame.size() != FrameBytes )
+        if ( !layout.Valid() || !entity || entity > uintptr_t( INTPTR_MAX ) - layout.volume - 512 || !std::isfinite( now ) || frame.size() != layout.frameBytes )
         {
             return false;
         }
 
-        std::array<uint8_t, 240> before{}, after{};
+        std::array<uint8_t, 512> before{}, after{};
+        const size_t headerBytes =
+            std::max( { layout.storage + sizeof( uintptr_t ), layout.frame + sizeof( int ), layout.center + sizeof( Point ), layout.startTime + sizeof( float ) } );
 
         for ( int attempt = 0; attempt < 2; ++attempt )
         {
-            if ( !read( entity + volumeOffset, before.data(), before.size() ) )
+            if ( !read( entity + layout.volume, before.data(), headerBytes ) )
             {
                 return false;
             }
 
-            auto storage = Decode<uintptr_t>( before.data(), 112 );
-            int active = Decode<int>( before.data(), 236 );
-            float started = Decode<float>( before.data(), 12 );
-            Point center = Decode<Point>( before.data(), 212 );
+            auto storage = Decode<uintptr_t>( before.data(), layout.storage );
+            int active = Decode<int>( before.data(), layout.frame );
+            float started = Decode<float>( before.data(), layout.startTime );
+            Point center = Decode<Point>( before.data(), layout.center );
             float age = now - started;
 
-            if ( ( active != 0 && active != 1 ) || !storage || storage > uintptr_t( INTPTR_MAX ) - 0x103008 || !Finite( center ) || !std::isfinite( age ) || age < -.25f ||
-                 age > 30 )
+            if ( ( active != 0 && active != 1 ) || !storage ||
+                 storage > uintptr_t( INTPTR_MAX ) - std::max( layout.opaque + output.opaque.size(), layout.density + 2 * layout.frameBytes ) || !Finite( center ) ||
+                 !std::isfinite( age ) || age < -.25f || age > 30 )
             {
                 return false;
             }
 
-            if ( !read( storage + 8, output.opaque.data(), output.opaque.size() ) || !read( storage + 0x3008 + active * FrameBytes, frame.data(), FrameBytes ) ||
-                 !read( entity + volumeOffset, after.data(), after.size() ) )
+            if ( !read( storage + layout.opaque, output.opaque.data(), output.opaque.size() ) ||
+                 !read( storage + layout.density + active * layout.frameBytes, frame.data(), layout.frameBytes ) || !read( entity + layout.volume, after.data(), headerBytes ) )
             {
                 return false;
             }
@@ -343,7 +346,7 @@ namespace awh::smoke
 
             for ( size_t i = 0; i < output.density.size(); ++i )
             {
-                float density = Decode<float>( frame.data(), i * 0x10 );
+                float density = Decode<float>( frame.data(), i * layout.densityStride );
 
                 if ( !std::isfinite( density ) || density < 0 )
                 {
@@ -363,14 +366,11 @@ namespace awh::smoke
         return false;
     }
 
-    inline bool SupportedSize( uint64_t size )
+    template <class Reader> bool ReadSnapshot( uintptr_t entity, size_t volumeOffset, float now, Volume& output, std::vector<uint8_t>& frame, Reader read )
     {
-        return size == 41724600 || size == 41726328;
-    }
-
-    inline bool Matches( uint64_t size, uint32_t crc )
-    {
-        return ( size == 41724600 && crc == 775764504u ) || ( size == 41726328 && ( crc == 131044578u || crc == 705576273u ) );
+        Layout layout;
+        layout.volume = volumeOffset;
+        return ReadSnapshot( entity, layout, now, output, frame, read );
     }
 
     inline uint32_t Crc32( std::istream& input )

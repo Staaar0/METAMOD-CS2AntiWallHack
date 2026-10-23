@@ -56,6 +56,16 @@ namespace awh
             }
         }
 
+        template <class Query> void EvaluateBot( int human, int bot, int tick, int grace, int& humanDeadline, int& botDeadline, Query query )
+        {
+            if ( !Hidden( human, bot, tick, humanDeadline ) )
+            {
+                return;
+            }
+
+            Evaluate( bot, human, tick, grace, botDeadline, humanDeadline, query );
+        }
+
         bool Hidden( int viewer, int target, int tick, int deadline ) const
         {
             // Read after all recipients in this batch have been evaluated: a later

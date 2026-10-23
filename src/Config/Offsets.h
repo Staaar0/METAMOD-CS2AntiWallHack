@@ -16,20 +16,20 @@ namespace awh
 
             for ( int depth = 0; info && depth < 32; ++depth )
             {
-                if ( !Readable( info, sizeof( *info ) ) || info->m_nFieldCount > 4096 || info->m_nBaseClassCount > 32 ||
-                     ( info->m_nFieldCount && !Readable( info->m_pFields, size_t( info->m_nFieldCount ) * sizeof( SchemaClassFieldData_t ) ) ) )
+                if ( !Readable( info, sizeof( *info ) ) || info->m_nNumFields > 4096 || info->m_nNumBaseClasses > 32 ||
+                     ( info->m_nNumFields && !Readable( info->m_pFields, size_t( info->m_nNumFields ) * sizeof( SchemaClassFieldData_t ) ) ) )
                 {
                     META_CONPRINTF( "[AntiWallHack] Invalid schema metadata: %s\n", cls );
                     return -1;
                 }
 
-                for ( int i = 0; i < info->m_nFieldCount; ++i )
+                for ( int i = 0; i < info->m_nNumFields; ++i )
                 {
-                    if ( SchemaNameEquals( info->m_pFields[i].m_pszName, name ) )
+                    if ( SchemaNameEquals( info->m_pFields[i].m_pName, name ) )
                     {
                         int offset = info->m_pFields[i].m_nSingleInheritanceOffset;
 
-                        if ( offset < 0 || offset >= info->m_nSize )
+                        if ( offset < 0 || offset >= info->m_nSizeOf )
                         {
                             META_CONPRINTF( "[AntiWallHack] Invalid schema offset: %s::%s\n", cls, name );
                             return -1;
@@ -39,13 +39,13 @@ namespace awh
                     }
                 }
 
-                if ( info->m_nBaseClassCount && !Readable( info->m_pBaseClasses, size_t( info->m_nBaseClassCount ) * sizeof( SchemaBaseClassInfoData_t ) ) )
+                if ( info->m_nNumBaseClasses && !Readable( info->m_pBaseClasses, size_t( info->m_nNumBaseClasses ) * sizeof( SchemaBaseClassInfoData_t ) ) )
                 {
                     META_CONPRINTF( "[AntiWallHack] Invalid schema base metadata: %s\n", cls );
                     return -1;
                 }
 
-                info = info->m_nBaseClassCount ? info->m_pBaseClasses[0].m_pClass : nullptr;
+                info = info->m_nNumBaseClasses ? info->m_pBaseClasses[0].m_pClass : nullptr;
             }
 
             META_CONPRINTF( "[AntiWallHack] Missing schema field: %s::%s\n", cls, name );

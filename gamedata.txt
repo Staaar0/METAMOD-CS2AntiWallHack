@@ -1,0 +1,23 @@
+// AntiWallHack Linux x86-64 compatibility data. Reload the plugin after editing.
+// Only add fingerprints after verifying the private layout against that binary.
+GameEntitySystem       80
+TraceShape             "55 48 8D 05 ? ? ? ? 48 89 E5 41 57 49 89 F7 41 56 48 8D 35 ? ? ? ? 49 89 CE"
+GameEventManager       "48 8D 05 ? ? ? ? 49 89 F4 31 C9"
+FireEvent              8
+
+// Exact size and CRC32 pairs. Previous verified binaries remain supported.
+ServerBinary           41724600 775764504
+ServerBinary           41726328 131044578
+ServerBinary           41726328 705576273
+ServerBinary           41804088 2260596490
+
+// CSmokeGrenadeProjectile and its embedded voxel storage.
+SmokeVolume            3736
+SmokeStorage           112
+SmokeFrame             236
+SmokeCenter            212
+SmokeStartTime         12
+SmokeOpaque            8
+SmokeDensity           12296
+SmokeFrameBytes        524288
+SmokeDensityStride     16

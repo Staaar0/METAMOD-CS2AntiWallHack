@@ -10,7 +10,7 @@ namespace awh
         CEntityInstance* pawn = nullptr;
         uint32 controllerHandle = 0, pawnHandle = 0;
         uint8 team = 0;
-        bool human = false, complete = false;
+        bool human = false, bot = false, complete = false;
         Vector origin, eye, mins, maxs, velocity;
         QAngle angles;
         std::vector<CEntityHandle> entities;

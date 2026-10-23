@@ -192,6 +192,7 @@ void AntiWallHack::BeginFrame( int tick, float now )
         // FL_FAKECLIENT and HLTV bypass, only filter the actual living pawn, not a possessed bot.
         p.human = !( Field<uint32>( controller, offsets.flags ) & FL_FAKECLIENT ) && !Field<bool>( controller, offsets.hltv ) &&
                   Field<CEntityHandle>( controller, offsets.currentPawn ) == handle;
+        p.bot = ( Field<uint32>( controller, offsets.flags ) & FL_FAKECLIENT ) != 0;
         Identity identity{ p.controllerHandle, p.pawnHandle, team };
 
         if ( !( identities[slot] == identity ) )
@@ -296,6 +297,15 @@ void AntiWallHack::EvaluateViewer( int slot, int tick )
                                  {
                                      return players[to].complete ? CheckVisibility( from, to ) : DirectVisibility::Unknown;
                                  } );
+
+        if ( players[targetSlot].bot )
+        {
+            pairVisibility.EvaluateBot( slot, targetSlot, tick, settings.VisibleGraceTicks, deadlines[slot][targetSlot], deadlines[targetSlot][slot],
+                                        [&]( int from, int to )
+                                        {
+                                            return players[to].complete ? CheckVisibility( from, to ) : DirectVisibility::Unknown;
+                                        } );
+        }
     }
 }
 
