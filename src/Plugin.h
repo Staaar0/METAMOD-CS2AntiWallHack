@@ -77,7 +77,6 @@ class AntiWallHack final : public ISmmPlugin, public IMetamodListener
     std::atomic<bool> debugTraceSeen{ false };
     bool debugTransmitSeen = false, debugTransmitReady = false, debugFrameSeen = false;
     std::shared_ptr<std::atomic<bool>> visCancel;
-    // Destroy/join the future before the logger members used by its worker.
     std::future<VisibilityMap> visPending;
 
     std::chrono::steady_clock::time_point visNextPoll{};
@@ -135,6 +134,7 @@ class AntiWallHack final : public ISmmPlugin, public IMetamodListener
     void LoadSettings();
     void LoadVisibility( const char* name, bool startValidation = true );
     void UpdateVisibility();
+    void StopVisibilityWorker() noexcept;
     void Reset();
     void ConfigureConvar();
     void DisableSmoke( const std::string& reason );
@@ -159,6 +159,7 @@ class AntiWallHack final : public ISmmPlugin, public IMetamodListener
     bool Unload( char*, size_t ) override;
     void OnLevelInit( const char* map, const char*, const char*, const char*, bool, bool ) override;
     void OnLevelShutdown() override;
+    
     KHook::Return<bool> OnGameEvent( IGameEventManager2*, IGameEvent* event, bool );
     KHook::Return<void> OnTrace( void* manager, Ray_t&, Vector&, Vector&, CTraceFilter*, CGameTrace* );
     KHook::Return<void> OnTransmit( ISource2GameEntities*, CCheckTransmitInfo** infos, int count, CBitVec<16384>&, CBitVec<16384>&, const Entity2Networkable_t**, const uint16*,

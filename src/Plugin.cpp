@@ -154,17 +154,8 @@ bool AntiWallHack::Unload( char*, size_t )
         frameHook.reset();
     }
 
-    if ( visCancel )
-    {
-        visCancel->store( true );
-    }
-
     DebugStage( "Unload: entered, waiting for VIS worker" );
-
-    if ( visPending.valid() )
-    {
-        visPending.wait();
-    }
+    StopVisibilityWorker();
 
     DebugStage( "Unload: VIS worker finished, removing hooks" );
 
@@ -226,7 +217,7 @@ const char* AntiWallHack::GetLicense()
 
 const char* AntiWallHack::GetVersion()
 {
-    return "1.0.5";
+    return "1.0.6";
 }
 
 const char* AntiWallHack::GetDate()

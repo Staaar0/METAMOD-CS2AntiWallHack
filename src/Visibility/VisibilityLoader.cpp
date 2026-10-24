@@ -26,11 +26,7 @@ void AntiWallHack::NotifyMissingVisibility()
 
 void AntiWallHack::LoadVisibility( const char* name, bool startValidation )
 {
-    if ( visCancel )
-    {
-        visCancel->store( true );
-    }
-
+    StopVisibilityWorker();
     DebugStage( "LoadVisibility: enter" );
     visibility = {};
     visMapName = name && *name ? name : "<unknown>";
@@ -154,7 +150,7 @@ void AntiWallHack::UpdateVisibility()
 
                                      try
                                      {
-                                         loaded.Load(
+                                         const bool completed = loaded.Load(
                                              path, root, map,
                                              [this]( const char* progress )
                                              {
@@ -164,6 +160,7 @@ void AntiWallHack::UpdateVisibility()
                                              {
                                                  return cancelled->load();
                                              } );
+                                         DebugStage( completed ? "VIS worker: validation completed" : "VIS worker: validation cancelled" );
                                      }
                                      catch ( ... )
                                      {
@@ -171,7 +168,6 @@ void AntiWallHack::UpdateVisibility()
                                          throw;
                                      }
 
-                                     DebugStage( "VIS worker: validation completed" );
                                      return loaded;
                                  } );
         DebugStage( "VIS: validation worker launched" );
@@ -186,4 +182,35 @@ void AntiWallHack::UpdateVisibility()
         visStatus = "VIS unavailable: " + std::string( error.what() );
         DebugStage( error.what() );
     }
+}
+
+void AntiWallHack::StopVisibilityWorker() noexcept
+{
+    if ( visCancel )
+    {
+        visCancel->store( true );
+    }
+
+    if ( visPending.valid() )
+    {
+        DebugStage( "VIS: waiting for validation worker to stop" );
+
+        try
+        {
+            visPending.get();
+        }
+        catch ( const std::exception& error )
+        {
+            DebugStage( error.what() );
+        }
+        catch ( ... )
+        {
+            DebugStage( "VIS: discarded validation error during shutdown" );
+        }
+
+        DebugStage( "VIS: validation worker stopped" );
+    }
+
+    visCancel.reset();
+    visLoadingMap.clear();
 }

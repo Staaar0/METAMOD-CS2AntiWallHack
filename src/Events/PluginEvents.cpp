@@ -2,7 +2,6 @@
 
 KHook::Return<void> AntiWallHack::OnFrame( ISource2Server*, bool, bool, bool )
 {
-    // client's CheckTransmit callback. Keep empty servers prepared as well.
     if ( settings.Enabled && traceManager && !visMapName.empty() )
     {
         UpdateVisibility();
@@ -33,12 +32,8 @@ void AntiWallHack::OnLevelInit( const char* map, const char*, const char*, const
 
 void AntiWallHack::OnLevelShutdown()
 {
-    if ( visCancel )
-    {
-        visCancel->store( true );
-    }
-
     DebugStage( "OnLevelShutdown: entered" );
+    StopVisibilityWorker();
     ++visGeneration;
     visibility = {};
     visMapName.clear();

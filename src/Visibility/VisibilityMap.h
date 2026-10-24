@@ -13,6 +13,7 @@
 #include <functional>
 #include <thread>
 #include <chrono>
+#include <optional>
 #include "Visibility/MapIdentity.h"
 
 namespace awh
@@ -36,8 +37,13 @@ namespace awh
             return hash;
         }
 
-        static uint64_t FileHash( const std::filesystem::path& path, uint64_t expectedSize, const std::function<bool()>& cancelled )
+        static std::optional<uint64_t> FileHash( const std::filesystem::path& path, uint64_t expectedSize, const std::function<bool()>& cancelled )
         {
+            if ( cancelled && cancelled() )
+            {
+                return std::nullopt;
+            }
+
             if ( std::filesystem::file_size( path ) != expectedSize )
             {
                 throw std::runtime_error( "VIS source size changed: " + path.string() );
@@ -57,7 +63,7 @@ namespace awh
             {
                 if ( cancelled && cancelled() )
                 {
-                    throw std::runtime_error( "VIS validation cancelled" );
+                    return std::nullopt;
                 }
 
                 file.read( buffer.data(), buffer.size() );
@@ -89,23 +95,29 @@ namespace awh
             return size_t( count );
         }
 
-        void Load( const std::filesystem::path& path, const std::filesystem::path& root, const std::string& map, const std::function<void( const char* )>& progress = {},
+        bool Load( const std::filesystem::path& path, const std::filesystem::path& root, const std::string& map, const std::function<void( const char* )>& progress = {},
                    const std::function<bool()>& cancelled = {} )
         {
             auto stage = [&]( const char* message )
             {
                 if ( cancelled && cancelled() )
                 {
-                    throw std::runtime_error( "VIS validation cancelled" );
+                    return false;
                 }
 
                 if ( progress )
                 {
                     progress( message );
                 }
+
+                return true;
             };
             *this = {};
-            stage( "VIS load: resolving map archive" );
+            if ( !stage( "VIS load: resolving map archive" ) )
+            {
+                return false;
+            }
+
             VisibilityMap loaded;
             const bool workshop = map.compare( 0, 9, "workshop/" ) == 0;
             const auto archive = MapArchive( root, map );
@@ -113,9 +125,16 @@ namespace awh
 
             const auto expectedSource = archive.lexically_relative( sourceRoot ).generic_string();
             const auto sourceDescription = "VIS load: expected source=" + expectedSource;
-            stage( sourceDescription.c_str() );
+            if ( !stage( sourceDescription.c_str() ) )
+            {
+                return false;
+            }
+
             std::ifstream file( path, std::ios::binary );
-            stage( "VIS load: reading manifest" );
+            if ( !stage( "VIS load: reading manifest" ) )
+            {
+                return false;
+            }
 
             if ( !file )
             {
@@ -138,7 +157,10 @@ namespace awh
                 throw std::runtime_error( "Truncated VIS manifest" );
             }
 
-            stage( "VIS load: parsing manifest" );
+            if ( !stage( "VIS load: parsing manifest" ) )
+            {
+                return false;
+            }
 
             auto data = nlohmann::json::parse( header );
 
@@ -177,7 +199,10 @@ namespace awh
             }
 
             auto sources = data.at( "sources" );
-            stage( "VIS load: dimensions checked, verifying archive fingerprints" );
+            if ( !stage( "VIS load: dimensions checked, verifying archive fingerprints" ) )
+            {
+                return false;
+            }
 
             if ( !sources.is_array() || sources.empty() || sources.size() > 128 )
             {
@@ -217,37 +242,63 @@ namespace awh
                 const auto sourceSize = source.at( "size" ).get<uint64_t>();
                 const auto started = std::chrono::steady_clock::now();
                 const std::string description = "VIS source hash: " + name + " bytes=" + std::to_string( sourceSize );
-                stage( description.c_str() );
+                if ( !stage( description.c_str() ) )
+                {
+                    return false;
+                }
 
-                if ( FileHash( sourceRoot / relative, sourceSize, cancelled ) != source.at( "hash" ).get<uint64_t>() )
+                const auto sourceHash = FileHash( sourceRoot / relative, sourceSize, cancelled );
+
+                if ( !sourceHash )
+                {
+                    return false;
+                }
+
+                if ( *sourceHash != source.at( "hash" ).get<uint64_t>() )
                 {
                     throw std::runtime_error( "VIS source changed, rebake the map" );
                 }
 
                 const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>( std::chrono::steady_clock::now() - started ).count();
                 const std::string completed = "VIS source hash complete: " + name + " elapsed_ms=" + std::to_string( elapsed );
-                stage( completed.c_str() );
+                if ( !stage( completed.c_str() ) )
+                {
+                    return false;
+                }
             }
 
-            stage( mapSource ? "VIS load: source loop completed, current archive matched" : "VIS load: source loop completed, current archive missing" );
+            if ( !stage( mapSource ? "VIS load: source loop completed, current archive matched" : "VIS load: source loop completed, current archive missing" ) )
+            {
+                return false;
+            }
 
             if ( !mapSource )
             {
                 throw std::runtime_error( "VIS manifest lacks current map VPK: " + expectedSource );
             }
 
-            stage( "VIS load: fingerprints verified, allocating table" );
+            if ( !stage( "VIS load: fingerprints verified, allocating table" ) )
+            {
+                return false;
+            }
 
             if ( progress )
             {
                 const std::string allocation = "VIS load: allocation bytes=" + std::to_string( bytes ) + " cells=" + std::to_string( loaded.count );
-                stage( allocation.c_str() );
+                if ( !stage( allocation.c_str() ) )
+                {
+                    return false;
+                }
             }
 
             loaded.cells.resize( size_t( grid ) );
             loaded.floors.resize( loaded.count );
             loaded.bits.resize( size_t( bitCount ) );
-            stage( "VIS load: allocation complete, reading payload" );
+            if ( !stage( "VIS load: allocation complete, reading payload" ) )
+            {
+                return false;
+            }
+
             uint64_t hash = 14695981039346656037ULL;
 
             auto read = [&]( void* buffer, size_t size )
@@ -258,7 +309,7 @@ namespace awh
                 {
                     if ( cancelled && cancelled() )
                     {
-                        throw std::runtime_error( "VIS validation cancelled" );
+                        return false;
                     }
 
                     size_t chunk = std::min( size - offset, size_t( 65536 ) );
@@ -277,12 +328,20 @@ namespace awh
                         std::this_thread::sleep_for( std::chrono::milliseconds( 1 ) );
                     }
                 }
+
+                return true;
             };
 
-            read( loaded.cells.data(), loaded.cells.size() * 4 );
-            read( loaded.floors.data(), loaded.floors.size() * 12 );
-            read( loaded.bits.data(), loaded.bits.size() * 8 );
-            stage( "VIS load: payload read, validating checksum and cells" );
+            if ( !read( loaded.cells.data(), loaded.cells.size() * 4 ) || !read( loaded.floors.data(), loaded.floors.size() * 12 ) ||
+                 !read( loaded.bits.data(), loaded.bits.size() * 8 ) )
+            {
+                return false;
+            }
+
+            if ( !stage( "VIS load: payload read, validating checksum and cells" ) )
+            {
+                return false;
+            }
 
             if ( hash != data.at( "checksum" ).get<uint64_t>() )
             {
@@ -308,8 +367,18 @@ namespace awh
                 }
             }
 
-            stage( "VIS load: table validated" );
+            if ( !stage( "VIS load: table validated" ) )
+            {
+                return false;
+            }
+
+            if ( cancelled && cancelled() )
+            {
+                return false;
+            }
+
             *this = std::move( loaded );
+            return true;
         }
 
         template <class Point> int Cell( const Point& origin ) const
