@@ -66,9 +66,9 @@ namespace awh
         size_t size;
     };
 
-    inline void* FindServerFunction( const std::string& pattern, void* serverFunction )
+    inline void* FindServerFunction( const std::string& pattern, void* moduleAnchor )
     {
-        if ( !serverFunction )
+        if ( !moduleAnchor )
         {
             return nullptr;
         }
@@ -103,7 +103,7 @@ namespace awh
 
         Dl_info module{};
 
-        if ( !dladdr( serverFunction, &module ) || !module.dli_fbase )
+        if ( !dladdr( moduleAnchor, &module ) || !module.dli_fbase )
         {
             return nullptr;
         }
