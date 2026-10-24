@@ -30,6 +30,7 @@
 #include "Visibility/VisibilityMap.h"
 #include "Networking/TransmitInfo.h"
 #include "Helpers/Memory.h"
+#include "Helpers/ModuleAnchor.h"
 #include "Helpers/Jsonc.h"
 #include "Config/Config.h"
 #include "Config/Gamedata.h"
@@ -139,7 +140,7 @@ class AntiWallHack final : public ISmmPlugin, public IMetamodListener
     void ConfigureConvar();
     void DisableSmoke( const std::string& reason );
     void RemoveEventHook();
-    void SetupSmoke( void* serverFunction, CSchemaSystemTypeScope* scope, const Json& platform );
+    void SetupSmoke( void* moduleAnchor, CSchemaSystemTypeScope* scope, const Json& platform );
     void CaptureSmoke();
     bool IsSmokeHidden( const Snapshot& viewer, const Snapshot& target, Vector eyeLead, int count, int first );
     bool CollectChildren( void* node, Snapshot& snapshot, std::unordered_set<void*>& seen, int depth );

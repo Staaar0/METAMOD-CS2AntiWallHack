@@ -27,7 +27,7 @@ void AntiWallHack::RemoveEventHook()
     eventManager = nullptr;
 }
 
-void AntiWallHack::SetupSmoke( void* serverFunction, CSchemaSystemTypeScope* scope, const Json& platform )
+void AntiWallHack::SetupSmoke( void* moduleAnchor, CSchemaSystemTypeScope* scope, const Json& platform )
 {
     DebugStage( "Smoke: setup entered" );
 
@@ -58,7 +58,7 @@ void AntiWallHack::SetupSmoke( void* serverFunction, CSchemaSystemTypeScope* sco
 
     DebugStage( "Smoke: verifying server fingerprint" );
 
-    if ( !smoke::VerifyModule( serverFunction, fingerprints, reason ) )
+    if ( !smoke::VerifyModule( moduleAnchor, fingerprints, reason ) )
     {
         DisableSmoke( reason );
         return;
@@ -74,7 +74,7 @@ void AntiWallHack::SetupSmoke( void* serverFunction, CSchemaSystemTypeScope* sco
             throw std::runtime_error( "smoke schema field unavailable" );
         }
 
-        auto* signature = static_cast<uint8_t*>( FindServerFunction( platform.at( "GameEventManager" ).get<std::string>(), serverFunction ) );
+        auto* signature = static_cast<uint8_t*>( FindServerFunction( platform.at( "GameEventManager" ).get<std::string>(), moduleAnchor ) );
         int32_t displacement = 0;
 
         if ( !signature || !smoke::ReadValue( reinterpret_cast<uintptr_t>( signature ) + 3, displacement ) )
