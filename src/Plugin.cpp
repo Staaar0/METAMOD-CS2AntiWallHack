@@ -88,13 +88,14 @@ bool AntiWallHack::Load( PluginId id, ISmmAPI* ismm, char* error, size_t maxlen,
             throw std::runtime_error( "Invalid CheckTransmit vtable index" );
         }
 
-        auto* serverFunction = ( *reinterpret_cast<void***>( gameEntities ) )[index];
-
-        traceFunction = reinterpret_cast<TraceFunction>( FindServerFunction( platform.at( "TraceShape" ).get<std::string>(), serverFunction ) );
+        void* moduleAnchor = InterfaceModuleAnchor( gameEntities );
+        traceFunction = reinterpret_cast<TraceFunction>( FindServerFunction( platform.at( "TraceShape" ).get<std::string>(), moduleAnchor ) );
 
         if ( !traceFunction )
         {
-            throw std::runtime_error( "TraceShape signature missing or ambiguous, update gamedata.txt" );
+            META_CONPRINTF( "[AntiWallHack] Startup rejected, TraceShape signature missing or ambiguous, update gamedata.txt. No hooks installed.\n" );
+            ismm->Format( error, maxlen, "AntiWallHack: TraceShape signature missing or ambiguous, update gamedata.txt" );
+            return false;
         }
 
         traceHook = std::make_unique<TraceHook>( this, &AntiWallHack::OnTrace, nullptr );
@@ -110,7 +111,7 @@ bool AntiWallHack::Load( PluginId id, ISmmAPI* ismm, char* error, size_t maxlen,
         ismm->AddListener( this, this );
         DebugStage( "Load: hooks installed, configuring convar" );
         ConfigureConvar();
-        SetupSmoke( serverFunction, scope, platform );
+        SetupSmoke( moduleAnchor, scope, platform );
         DebugStage( "Load: completed" );
         return true;
     }
