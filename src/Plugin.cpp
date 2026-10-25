@@ -218,7 +218,7 @@ const char* AntiWallHack::GetLicense()
 
 const char* AntiWallHack::GetVersion()
 {
-    return "1.0.6";
+    return "1.0.7";
 }
 
 const char* AntiWallHack::GetDate()
