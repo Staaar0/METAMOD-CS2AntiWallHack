@@ -50,8 +50,8 @@ using namespace awh;
 
 class AntiWallHack final : public ISmmPlugin, public IMetamodListener
 {
-    using TraceFunction = void ( * )( void*, Ray_t&, Vector&, Vector&, CTraceFilter*, CGameTrace* );
-    using TraceHook = KHook::Function<void, void*, Ray_t&, Vector&, Vector&, CTraceFilter*, CGameTrace*>;
+    using TraceFunction = bool ( * )( void*, Ray_t&, Vector&, Vector&, CTraceFilter*, CGameTrace* );
+    using TraceHook = KHook::Function<bool, void*, Ray_t&, Vector&, Vector&, CTraceFilter*, CGameTrace*>;
     ISource2GameEntities* gameEntities = nullptr;
     ISource2Server* serverDll = nullptr;
     using FrameHook = KHook::Virtual<ISource2Server, void, bool, bool, bool>;
@@ -160,9 +160,8 @@ class AntiWallHack final : public ISmmPlugin, public IMetamodListener
     bool Unload( char*, size_t ) override;
     void OnLevelInit( const char* map, const char*, const char*, const char*, bool, bool ) override;
     void OnLevelShutdown() override;
-    
     KHook::Return<bool> OnGameEvent( IGameEventManager2*, IGameEvent* event, bool );
-    KHook::Return<void> OnTrace( void* manager, Ray_t&, Vector&, Vector&, CTraceFilter*, CGameTrace* );
+    KHook::Return<bool> OnTrace( void* manager, Ray_t&, Vector&, Vector&, CTraceFilter*, CGameTrace* );
     KHook::Return<void> OnTransmit( ISource2GameEntities*, CCheckTransmitInfo** infos, int count, CBitVec<16384>&, CBitVec<16384>&, const Entity2Networkable_t**, const uint16*,
                                     int );
     const char* GetAuthor() override;

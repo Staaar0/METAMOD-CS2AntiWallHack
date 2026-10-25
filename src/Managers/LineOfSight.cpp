@@ -148,7 +148,7 @@ DirectVisibility AntiWallHack::CheckVisibility( int viewerSlot, int targetSlot )
     return DirectVisibility::Hidden;
 }
 
-KHook::Return<void> AntiWallHack::OnTrace( void* manager, Ray_t&, Vector&, Vector&, CTraceFilter*, CGameTrace* )
+KHook::Return<bool> AntiWallHack::OnTrace( void* manager, Ray_t&, Vector&, Vector&, CTraceFilter*, CGameTrace* )
 {
     if ( settings.Debug && !debugTraceSeen.exchange( true ) )
     {
